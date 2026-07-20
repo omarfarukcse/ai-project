@@ -1,0 +1,70 @@
+# observability/prometheus/rules.yml
+groups:
+  - name: cdss_alerts
+    interval: 30s
+    rules:
+      # API Alerts
+      - alert: HighErrorRate
+        expr: rate(cdss_requests_total{status="500"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on CDSS API"
+          description: "Error rate is {{ $value }} for the last 5 minutes"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, sum(rate(cdss_request_latency_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on CDSS API"
+          description: "P95 latency is {{ $value }}s for the last 5 minutes"
+
+      # Model Alerts
+      - alert: ModelPerformanceDrop
+        expr: cdss_model_recall < 0.7
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model performance degraded"
+          description: "Model recall is {{ $value }}"
+
+      - alert: DataDriftDetected
+        expr: cdss_data_drift_score > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data drift detected"
+          description: "Data drift score is {{ $value }}"
+
+      # System Alerts
+      - alert: HighCPUUsage
+        expr: system_cpu_percent > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%"
+
+      - alert: HighMemoryUsage
+        expr: system_memory_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}%"
+
+      - alert: PodCrashLooping
+        expr: kube_pod_container_status_restarts_total > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times"

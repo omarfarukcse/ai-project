@@ -1,0 +1,79 @@
+{
+  "users": {
+    "admin": {
+      "id": "admin_001",
+      "username": "admin",
+      "password_hash": "$2b$12$8VZ3L8qX7cQ9vBcR1yKj0.YeWnE5dFgH7jKlM2nP4qR6sT8uVwX",
+      "email": "admin@cdss-healthcare.com",
+      "roles": ["admin", "ml_engineer", "clinician"],
+      "permissions": ["*"],
+      "enabled": true,
+      "created_at": "2024-01-01T00:00:00",
+      "last_login": null
+    },
+    "ml_engineer": {
+      "id": "ml_001",
+      "username": "ml_engineer",
+      "password_hash": "$2b$12$Vz3L8qX7cQ9vBcR1yKj0.YeWnE5dFgH7jKlM2nP4qR6sT8uVwX",
+      "email": "ml@cdss-healthcare.com",
+      "roles": ["ml_engineer"],
+      "permissions": ["train", "evaluate", "deploy", "monitor"],
+      "enabled": true,
+      "created_at": "2024-01-01T00:00:00",
+      "last_login": null
+    },
+    "clinician": {
+      "id": "clinician_001",
+      "username": "clinician",
+      "password_hash": "$2b$12$Wz3L8qX7cQ9vBcR1yKj0.YeWnE5dFgH7jKlM2nP4qR6sT8uVwX",
+      "email": "clinician@cdss-healthcare.com",
+      "roles": ["clinician"],
+      "permissions": ["predict", "view_reports"],
+      "enabled": true,
+      "created_at": "2024-01-01T00:00:00",
+      "last_login": null
+    }
+  },
+  "api_keys": {
+    "key_001": {
+      "name": "Production API Key",
+      "key_hash": "sha256$abcd1234efgh5678",
+      "expires_at": "2025-01-01T00:00:00",
+      "permissions": ["predict", "view_reports"],
+      "created_at": "2024-01-01T00:00:00"
+    }
+  },
+  "roles": {
+    "admin": {
+      "description": "Administrator with full access",
+      "permissions": ["*"]
+    },
+    "ml_engineer": {
+      "description": "ML Engineer for model management",
+      "permissions": ["train", "evaluate", "deploy", "monitor"]
+    },
+    "clinician": {
+      "description": "Clinician for patient predictions",
+      "permissions": ["predict", "view_reports"]
+    }
+  },
+  "permissions": {
+    "predict": "Make disease risk predictions",
+    "train": "Train and retrain models",
+    "evaluate": "Evaluate model performance",
+    "deploy": "Deploy models to production",
+    "monitor": "Monitor system and model metrics",
+    "view_reports": "View clinical reports",
+    "manage_users": "Manage user accounts",
+    "manage_config": "Update system configuration",
+    "audit_logs": "View audit logs",
+    "*": "All permissions"
+  },
+  "sessions": {},
+  "rate_limits": {
+    "default": {"limit": 100, "period": "minute"},
+    "admin": {"limit": 1000, "period": "minute"},
+    "ml_engineer": {"limit": 500, "period": "minute"},
+    "clinician": {"limit": 100, "period": "minute"}
+  }
+}

@@ -1,0 +1,79 @@
+# .github/workflows/iac_validation.yml
+name: Infrastructure Validation
+
+on:
+  pull_request:
+    paths:
+      - 'infrastructure/terraform/**'
+      - 'infrastructure/kubernetes/**'
+
+jobs:
+  validate-terraform:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform fmt check
+      run: |
+        cd infrastructure/terraform
+        terraform fmt -check
+    
+    - name: Terraform validate
+      run: |
+        cd infrastructure/terraform
+        terraform init -backend=false
+        terraform validate
+    
+    - name: TFLint
+      uses: terraform-linters/setup-tflint@v3
+      with:
+        tflint_version: v0.47.0
+    
+    - name: Run TFLint
+      run: |
+        cd infrastructure/terraform
+        tflint --init
+        tflint
+    
+    - name: Checkov Security Scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: infrastructure/terraform
+        framework: terraform
+        output_format: sarif
+        download_external_modules: true
+    
+    - name: Upload Checkov results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: results.sarif
+
+  validate-kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Kubernetes tools
+      run: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+        curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.6.0/kubeconform-linux-amd64.tar.gz | tar xvz
+        sudo mv kubeconform /usr/local/bin/
+        curl -sSfL https://github.com/redhat-developer/kube-linter/releases/download/v0.6.4/kube-linter-linux.tar.gz | tar xvz
+        sudo mv kube-linter /usr/local/bin/
+    
+    - name: Validate Kubernetes manifests
+      run: |
+        cd infrastructure/kubernetes
+        kubeconform -strict *.yaml
+    
+    - name: Run kube-linter
+      run: |
+        cd infrastructure/kubernetes
+        kube-linter lint *.yaml

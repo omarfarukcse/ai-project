@@ -1,0 +1,86 @@
+# .github/workflows/cd.yml
+name: Continuous Deployment
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Build and push API image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: infrastructure/docker/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:${{ github.ref_name }}
+        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:buildcache,mode=max
+
+  deploy-canary:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Set up Kubeconfig
+      uses: azure/setup-kubectl@v3
+      with:
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+    
+    - name: Deploy to canary
+      run: |
+        kubectl set image deployment/cdss-api cdss-api=${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:${{ github.ref_name }} -n healthcare
+        kubectl rollout status deployment/cdss-api -n healthcare --timeout=5m
+    
+    - name: Run canary tests
+      run: |
+        python scripts/validate.py --stage production
+        python scripts/monitor_canary.py --duration 300 --threshold 0.05
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: deploy-canary
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Set up Kubeconfig
+      uses: azure/setup-kubectl@v3
+      with:
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+    
+    - name: Promote to production
+      run: |
+        kubectl patch deployment cdss-api -n healthcare -p '{"spec":{"strategy":{"rollingUpdate":{"maxSurge":"100%"}}}}'
+        kubectl rollout status deployment/cdss-api -n healthcare --timeout=10m
+    
+    - name: Verify deployment
+      run: |
+        curl -f https://api.cdss-healthcare.com/health
+        curl -f https://api.cdss-healthcare.com/metrics

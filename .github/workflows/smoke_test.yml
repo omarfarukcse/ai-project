@@ -1,0 +1,40 @@
+# .github/workflows/smoke_test.yml
+name: Smoke Tests
+
+on:
+  deployment_status:
+    types: [deployed]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: github.event.deployment_status.state == 'success'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install -e .
+        pip install pytest requests
+    
+    - name: Run smoke tests
+      env:
+        API_URL: ${{ github.event.deployment_status.target_url }}
+      run: |
+        pytest tests/smoke/test_smoke.py -v --api-url=$API_URL
+    
+    - name: Notify on failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1
+      with:
+        channel-id: '#deployments'
+        slack-message: |
+          ❌ Smoke tests failed for deployment: ${{ github.event.deployment.environment }}
+          URL: ${{ github.event.deployment_status.target_url }}
+          Action: Review and rollback if necessary

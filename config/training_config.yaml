@@ -1,0 +1,53 @@
+# config/training_config.yaml
+# Training Pipeline Configuration
+
+pipeline:
+  name: "cdss_training_pipeline"
+  version: "3.0.0"
+  
+  steps:
+    - "ingest_data"
+    - "preprocess_data"
+    - "train_models"
+    - "evaluate_models"
+    - "calibrate_models"
+    - "generate_explanations"
+    - "validate_models"
+    - "register_models"
+    - "promote_models"
+    
+  data:
+    dataset_type: "diabetes"
+    test_size: 0.2
+    validation_size: 0.1
+    random_state: 42
+    
+  training:
+    models:
+      - "logistic_regression"
+      - "random_forest"
+      - "xgboost"
+    search_type: "grid"
+    cv_folds: 5
+    primary_metric: "recall"
+    
+  validation:
+    golden_tests: true
+    performance_threshold: 0.7
+    bias_check: true
+    
+  registry:
+    model_name: "cdss_model"
+    stage: "staging"
+    auto_promote: false
+    promotion_threshold: 0.75
+
+  monitoring:
+    track_metrics: true
+    log_predictions: true
+    audit_logging: true
+    
+  resources:
+    max_memory: "8GB"
+    max_cpu: 4
+    gpu_enabled: false

@@ -1,0 +1,64 @@
+{
+  "title": "CDSS Production Dashboard",
+  "uid": "cdss-dashboard",
+  "version": 1,
+  "panels": [
+    {
+      "title": "API Request Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(cdss_requests_total[5m])",
+          "legendFormat": "{{ endpoint }}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "title": "API Latency (P95)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cdss_request_latency_seconds_bucket[5m])) by (le))",
+          "legendFormat": "Latency"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "title": "Model Performance",
+      "type": "stat",
+      "targets": [
+        {"expr": "cdss_model_accuracy"},
+        {"expr": "cdss_model_recall"},
+        {"expr": "cdss_model_f1"}
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8}
+    },
+    {
+      "title": "Drift Detection",
+      "type": "graph",
+      "targets": [
+        {"expr": "cdss_drift_score"}
+      ],
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 8}
+    },
+    {
+      "title": "System Resources",
+      "type": "graph",
+      "targets": [
+        {"expr": "system_cpu_percent"},
+        {"expr": "system_memory_percent"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "title": "Prediction Volume",
+      "type": "stat",
+      "targets": [
+        {"expr": "sum(cdss_predictions_total)"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+    }
+  ]
+}

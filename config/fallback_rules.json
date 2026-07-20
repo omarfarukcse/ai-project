@@ -1,0 +1,289 @@
+{
+  "fallback_rules": {
+    "version": "3.0.0",
+    "description": "Clinical fallback rules for CDSS when ML model is unavailable",
+    "last_updated": "2024-01-15T00:00:00Z",
+    "author": "Clinical AI Team",
+    
+    "enabled": true,
+    "log_fallback_usage": true,
+    "alert_on_fallback": true,
+    
+    "triggers": {
+      "model_unavailable": {
+        "enabled": true,
+        "description": "ML model is not responding or unavailable",
+        "priority": 1
+      },
+      "model_timeout": {
+        "enabled": true,
+        "description": "ML model inference exceeded timeout",
+        "threshold_ms": 5000,
+        "priority": 2
+      },
+      "invalid_input": {
+        "enabled": true,
+        "description": "Input data failed validation",
+        "priority": 3
+      },
+      "high_uncertainty": {
+        "enabled": true,
+        "description": "Model prediction confidence below threshold",
+        "confidence_threshold": 0.5,
+        "priority": 4
+      },
+      "circuit_breaker_open": {
+        "enabled": true,
+        "description": "Circuit breaker is open",
+        "priority": 1
+      },
+      "resource_constraint": {
+        "enabled": true,
+        "description": "System resources are constrained",
+        "cpu_threshold": 85,
+        "memory_threshold": 85,
+        "priority": 3
+      }
+    },
+
+    "clinical_rules": {
+      "diabetes": {
+        "high_risk_factors": {
+          "glucose": {
+            "threshold": 126,
+            "weight": 3,
+            "description": "Fasting glucose >= 126 mg/dL indicates diabetes"
+          },
+          "bmi": {
+            "threshold": 30,
+            "weight": 2,
+            "description": "BMI >= 30 indicates obesity"
+          },
+          "age": {
+            "threshold": 45,
+            "weight": 1,
+            "description": "Age >= 45 increases risk"
+          },
+          "blood_pressure": {
+            "threshold": 80,
+            "weight": 1,
+            "description": "Blood pressure >= 80 mm Hg (diastolic)"
+          },
+          "pregnancies": {
+            "threshold": 5,
+            "weight": 1,
+            "description": ">= 5 pregnancies increases risk"
+          },
+          "family_history": {
+            "threshold": 0.5,
+            "weight": 2,
+            "description": "Positive family history (pedigree >= 0.5)"
+          }
+        },
+        "risk_scoring": {
+          "high_risk": {
+            "score_threshold": 7,
+            "risk_level": "High Risk",
+            "action": "Immediate clinical evaluation recommended",
+            "recommendations": [
+              "Perform fasting glucose test and HbA1c",
+              "Consult with endocrinologist",
+              "Start lifestyle modification program",
+              "Monitor glucose levels daily"
+            ]
+          },
+          "moderate_risk": {
+            "score_threshold": 4,
+            "risk_level": "Moderate Risk",
+            "action": "Schedule comprehensive metabolic panel",
+            "recommendations": [
+              "Review family history",
+              "Implement dietary changes",
+              "Increase physical activity",
+              "Monitor glucose levels weekly"
+            ]
+          },
+          "low_risk": {
+            "score_threshold": 0,
+            "risk_level": "Low Risk",
+            "action": "Maintain healthy lifestyle",
+            "recommendations": [
+              "Regular exercise (30 mins/day)",
+              "Balanced diet",
+              "Annual screening",
+              "Monitor for symptoms"
+            ]
+          }
+        }
+      },
+
+      "heart_disease": {
+        "high_risk_factors": {
+          "age": {
+            "threshold": 55,
+            "weight": 2,
+            "description": "Age >= 55 for males, >= 65 for females"
+          },
+          "cholesterol": {
+            "threshold": 240,
+            "weight": 2,
+            "description": "Total cholesterol >= 240 mg/dL"
+          },
+          "blood_pressure_systolic": {
+            "threshold": 140,
+            "weight": 2,
+            "description": "Systolic BP >= 140 mm Hg"
+          },
+          "blood_pressure_diastolic": {
+            "threshold": 90,
+            "weight": 1,
+            "description": "Diastolic BP >= 90 mm Hg"
+          },
+          "smoking": {
+            "threshold": 1,
+            "weight": 2,
+            "description": "Current smoker"
+          },
+          "diabetes": {
+            "threshold": 1,
+            "weight": 2,
+            "description": "History of diabetes"
+          },
+          "family_history": {
+            "threshold": 1,
+            "weight": 1,
+            "description": "Family history of heart disease"
+          },
+          "obesity": {
+            "threshold": 30,
+            "weight": 1,
+            "description": "BMI >= 30"
+          }
+        },
+        "risk_scoring": {
+          "high_risk": {
+            "score_threshold": 8,
+            "risk_level": "High Risk",
+            "action": "Immediate cardiac evaluation recommended",
+            "recommendations": [
+              "Stress test and ECG recommended",
+              "Consult with cardiologist",
+              "Start cardiac medications if indicated",
+              "Lifestyle: diet, exercise, smoking cessation"
+            ]
+          },
+          "moderate_risk": {
+            "score_threshold": 4,
+            "risk_level": "Moderate Risk",
+            "action": "Comprehensive lipid panel recommended",
+            "recommendations": [
+              "Review cardiovascular risk factors",
+              "Dietary consultation",
+              "Exercise stress test",
+              "Monitor blood pressure"
+            ]
+          },
+          "low_risk": {
+            "score_threshold": 0,
+            "risk_level": "Low Risk",
+            "action": "Maintain cardiovascular health",
+            "recommendations": [
+              "Regular exercise (30 mins/day)",
+              "Heart-healthy diet",
+              "Annual cardiovascular screening",
+              "Monitor for symptoms"
+            ]
+          }
+        }
+      }
+    },
+
+    "fallback_decisions": {
+      "default_prediction": {
+        "risk_score": 50,
+        "risk_level": "Moderate Risk",
+        "confidence": 0.0,
+        "reason": "ML model unavailable - using clinical rule-based fallback"
+      },
+      
+      "conservative_fallback": {
+        "enabled": true,
+        "description": "When uncertain, assume higher risk (patient safety)",
+        "risk_bump": 15,
+        "risk_level_adjustment": {
+          "Low Risk": "Moderate Risk",
+          "Moderate Risk": "High Risk",
+          "High Risk": "High Risk"
+        }
+      },
+      
+      "safe_fallback": {
+        "enabled": true,
+        "description": "Safe defaults for missing or invalid data",
+        "defaults": {
+          "glucose": 100,
+          "bmi": 25,
+          "age": 50,
+          "blood_pressure": 75,
+          "cholesterol": 200,
+          "pregnancies": 0,
+          "insulin": 50,
+          "skin_thickness": 25
+        }
+      }
+    },
+
+    "thresholds": {
+      "high_confidence": 0.8,
+      "medium_confidence": 0.6,
+      "low_confidence": 0.4,
+      "critical_confidence": 0.3,
+      
+      "risk_score_thresholds": {
+        "high_risk": 60,
+        "moderate_risk": 30,
+        "low_risk": 0
+      },
+      
+      "fallback_on_confidence_below": 0.5,
+      "fallback_on_drift_score": 0.3,
+      "fallback_on_uncertainty": 0.4
+    },
+
+    "override_rules": {
+      "allow_override": true,
+      "override_permissions": ["clinician", "admin"],
+      "override_logging": true,
+      
+      "valid_override_reasons": [
+        "Patient preference",
+        "Clinical judgment",
+        "Additional test results",
+        "Family history",
+        "Other clinical factors"
+      ],
+      
+      "override_timeout": 300
+    },
+
+    "monitoring": {
+      "track_fallback_rate": true,
+      "alert_threshold_fallback_rate": 0.1,
+      "track_fallback_reasons": true,
+      "alert_on_fallback": true,
+      "alert_on_high_fallback_rate": true,
+      "fallback_log_file": "outputs/logs/fallback.log"
+    },
+
+    "audit": {
+      "enabled": true,
+      "log_all_fallbacks": true,
+      "log_fallback_details": true,
+      "retention_days": 90,
+      "include_input_data": true,
+      "include_prediction": true,
+      "include_timestamp": true,
+      "include_user_id": true
+    }
+  }
+}

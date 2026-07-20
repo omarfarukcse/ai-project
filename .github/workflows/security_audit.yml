@@ -1,0 +1,53 @@
+# .github/workflows/security_audit.yml
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM
+  push:
+    paths:
+      - 'requirements.txt'
+      - '**/requirements*.txt'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install pip-audit safety
+    
+    - name: Run pip-audit
+      run: |
+        pip-audit --format=json --desc > pip-audit-results.json || true
+    
+    - name: Run safety check
+      run: |
+        safety check --json > safety-results.json || true
+    
+    - name: Parse and report
+      run: |
+        python scripts/security_audit.py
+    
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-results
+        path: outputs/security_audit_report.json
+    
+    - name: Notify on critical vulnerabilities
+      if: failure()
+      uses: slackapi/slack-github-action@v1
+      with:
+        channel-id: '#security-alerts'
+        slack-message: |
+          🔴 CRITICAL: Security vulnerabilities detected in dependencies!
+          Check the security audit report for details.

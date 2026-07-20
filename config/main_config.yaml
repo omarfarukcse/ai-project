@@ -1,0 +1,548 @@
+# config/main_config.yaml
+# Master Configuration - All Settings in One Place
+
+# ============================================================================
+# 🔧 Global Settings
+# ============================================================================
+global:
+  environment: "production"  # development, staging, production
+  debug: false
+  log_level: "INFO"
+  timezone: "UTC"
+  version: "3.0.0"
+
+# ============================================================================
+# 📊 Data Configuration
+# ============================================================================
+data:
+  dataset_type: "diabetes"  # diabetes, heart_disease
+  raw_data_path: "data/raw/"
+  processed_data_path: "data/processed/"
+  feature_store_path: "data/feature_store/"
+  reference_data_path: "data/reference_data.csv"
+  versioned_data_path: "data/versioned/"
+  test_size: 0.2
+  random_state: 42
+  validation_size: 0.1
+  max_samples: null  # null means all data
+
+  sources:
+    diabetes:
+      url: "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+      columns:
+        - "pregnancies"
+        - "glucose"
+        - "blood_pressure"
+        - "skin_thickness"
+        - "insulin"
+        - "bmi"
+        - "diabetes_pedigree"
+        - "age"
+        - "target"
+      target_column: "target"
+      
+    heart_disease:
+      url: "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data"
+      columns:
+        - "age"
+        - "sex"
+        - "cp"
+        - "trestbps"
+        - "chol"
+        - "fbs"
+        - "restecg"
+        - "thalach"
+        - "exang"
+        - "oldpeak"
+        - "slope"
+        - "ca"
+        - "thal"
+        - "target"
+      target_column: "target"
+
+# ============================================================================
+# 🔧 Preprocessing Configuration
+# ============================================================================
+preprocessing:
+  imputation:
+    strategy: "median"  # mean, median, mode, knn, iterative
+    method: "simple"    # simple, knn, iterative
+    knn_neighbors: 5
+    iterative_max_iter: 10
+    
+  scaling:
+    method: "standard"  # standard, minmax, robust, power, quantile
+    with_mean: true
+    with_std: true
+    
+  balancing:
+    method: "smote"     # smote, adasyn, borderline, none
+    k_neighbors: 5
+    sampling_strategy: "auto"  # auto, minority, majority, float
+    random_state: 42
+    
+  feature_engineering:
+    enabled: true
+    create_interactions: true
+    create_polynomials: false
+    polynomial_degree: 2
+    create_domain_features: true
+    
+  feature_selection:
+    enabled: false
+    method: "kbest"    # kbest, mutual_info, chi2
+    n_features: 20
+    score_func: "f_classif"
+    
+  pca:
+    enabled: false
+    n_components: 0.95  # Number or variance ratio
+    random_state: 42
+
+# ============================================================================
+# 🤖 Model Configuration
+# ============================================================================
+models:
+  # Models to train
+  models:
+    - "logistic_regression"
+    - "random_forest"
+    - "xgboost"
+    - "lightgbm"
+    
+  # Hyperparameter optimization
+  search_type: "grid"  # grid, random, optuna
+  cv_folds: 5
+  n_trials: 100  # for random/optuna search
+  
+  # Model selection
+  primary_metric: "recall"  # recall, f1, accuracy, roc_auc
+  secondary_metric: "specificity"
+  improvement_threshold: 0.01  # 1% improvement required
+  
+  # Calibration
+  calibration_method: "platt"  # platt, isotonic, temperature, none
+  calibration_cv_folds: 5
+  
+  # Model parameters
+  logistic_regression:
+    C: 1.0
+    penalty: "l2"
+    solver: "liblinear"
+    max_iter: 1000
+    class_weight: "balanced"
+    random_state: 42
+    
+  random_forest:
+    n_estimators: 200
+    max_depth: 10
+    min_samples_split: 5
+    min_samples_leaf: 2
+    max_features: "sqrt"
+    class_weight: "balanced"
+    random_state: 42
+    n_jobs: -1
+    
+  xgboost:
+    n_estimators: 300
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 1
+    gamma: 0
+    scale_pos_weight: 1
+    random_state: 42
+    n_jobs: -1
+    use_label_encoder: false
+    eval_metric: "logloss"
+    
+  lightgbm:
+    n_estimators: 200
+    max_depth: -1
+    learning_rate: 0.1
+    num_leaves: 31
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_samples: 20
+    class_weight: "balanced"
+    random_state: 42
+    n_jobs: -1
+
+# ============================================================================
+# 🌐 API Configuration
+# ============================================================================
+api:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  reload: false
+  
+  # CORS
+  cors_origins:
+    - "*"
+  cors_credentials: true
+  cors_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  cors_headers:
+    - "*"
+  
+  # Rate Limiting
+  rate_limit: 100  # requests per period
+  rate_limit_period: "minute"  # second, minute, hour, day
+  rate_limit_burst: 150
+  excluded_paths:
+    - "/health"
+    - "/metrics"
+    - "/"
+    - "/docs"
+    - "/redoc"
+  
+  # Security
+  allowed_hosts:
+    - "localhost"
+    - "127.0.0.1"
+  trusted_hosts:
+    - "localhost"
+    - "127.0.0.1"
+  
+  # Timeouts
+  timeout: 30
+  max_request_size: 10485760  # 10MB
+  
+  # Headers
+  server_header: false
+  date_header: false
+
+# ============================================================================
+# 🗄️ Redis Cache Configuration
+# ============================================================================
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: null  # Set via environment variable
+  max_connections: 20
+  connection_timeout: 1
+  socket_timeout: 1
+  retry_on_timeout: true
+  
+  # Cache settings
+  cache_ttl: 3600  # seconds (1 hour)
+  cache_key_prefix: "cdss:cache:"
+  cache_enabled: true
+  
+  # Feature store
+  feature_store_ttl: 86400  # 24 hours
+  feature_key_prefix: "cdss:feature:"
+  
+  # Rate limiting
+  rate_limit_prefix: "cdss:ratelimit:"
+
+# ============================================================================
+# 🔐 Security Configuration
+# ============================================================================
+security:
+  jwt:
+    secret_key: "your-secret-key-here"  # Set via environment variable
+    algorithm: "HS256"
+    access_token_expiry: 3600  # seconds (1 hour)
+    refresh_token_expiry: 604800  # seconds (7 days)
+    api_key_expiry: 31536000  # seconds (1 year)
+  
+  encryption:
+    enabled: true
+    key_id: "default"
+    algorithm: "AES-256-GCM"
+    
+  auth:
+    default_admin_username: "admin"
+    default_admin_password: "Admin123!"  # Change in production
+    require_auth: true
+    require_permission_checks: true
+  
+  rate_limiting:
+    global_limits:
+      ip: 100
+      user: 1000
+      endpoint: 500
+    burst_multiplier: 1.5
+    cleanup_interval: 300  # seconds (5 minutes)
+
+# ============================================================================
+# 📊 Feature Store Configuration
+# ============================================================================
+feature_store:
+  offline:
+    storage_path: "data/feature_store/"
+    format: "parquet"
+    compression: "snappy"
+    
+  online:
+    redis_enabled: true
+    cache_ttl: 3600
+    batch_size: 100
+    
+  features:
+    - name: "patient_risk_score"
+      type: "numerical"
+      description: "Computed risk score"
+      group: "risk"
+      
+    - name: "patient_age_group"
+      type: "categorical"
+      description: "Age group classification"
+      group: "demographics"
+      
+    - name: "bmi_category"
+      type: "categorical"
+      description: "BMI category"
+      group: "clinical"
+      
+    - name: "glucose_trend"
+      type: "numerical"
+      description: "Glucose trend over time"
+      group: "clinical"
+
+# ============================================================================
+# 🔄 Orchestration Configuration
+# ============================================================================
+orchestration:
+  scheduler:
+    max_workers: 4
+    enable_async: true
+    store_history: true
+    max_history: 1000
+    
+  airflow:
+    enabled: false
+    dag_folder: "dags/"
+    schedule_interval: "@daily"
+    catchup: false
+    max_active_runs: 1
+    
+  tasks:
+    retrain_model:
+      schedule: "daily"
+      hour: 2
+      minute: 0
+      enabled: true
+      max_retries: 3
+      
+    check_drift:
+      schedule: "hourly"
+      minute: 0
+      enabled: true
+      
+    generate_reports:
+      schedule: "weekly"
+      day: 1  # Monday
+      hour: 3
+      minute: 0
+      enabled: true
+
+# ============================================================================
+# 📈 Monitoring Configuration
+# ============================================================================
+monitoring:
+  collect_interval: 10  # seconds
+  retention_hours: 24
+  enable_system_metrics: true
+  enable_model_metrics: true
+  enable_async_monitoring: true
+  
+  prometheus:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+    multiprocess: false
+    
+  drift_detection:
+    enabled: true
+    threshold: 0.2
+    confidence_level: 0.95
+    detection_methods:
+      - "wasserstein"
+      - "ks"
+      - "chi2"
+    feature_specific_thresholds:
+      glucose: 0.15
+      bmi: 0.2
+      age: 0.1
+      blood_pressure: 0.15
+  
+  bias_monitoring:
+    enabled: true
+    fairness_threshold: 0.8
+    protected_attributes:
+      - "age"
+      - "sex"
+    enable_demographic_parity: true
+    enable_equal_opportunity: true
+    
+  alerting:
+    slack_webhook_url: null  # Set via environment variable
+    email:
+      enabled: false
+      host: "smtp.gmail.com"
+      port: 587
+      from: "alerts@cdss-healthcare.com"
+      to: "admin@cdss-healthcare.com"
+      username: null
+      password: null
+    pagerduty:
+      enabled: false
+      routing_key: null
+    webhook_url: null
+
+# ============================================================================
+# ⚡ Async Tasks Configuration
+# ============================================================================
+async_tasks:
+  celery:
+    broker_url: "redis://localhost:6379/0"
+    result_backend: "redis://localhost:6379/1"
+    task_serializer: "json"
+    result_serializer: "json"
+    accept_content:
+      - "json"
+    timezone: "UTC"
+    enable_utc: true
+    
+    task_settings:
+      track_started: true
+      time_limit: 1800  # 30 minutes
+      soft_time_limit: 1500  # 25 minutes
+      acks_late: true
+      reject_on_worker_lost: true
+      
+    worker_settings:
+      prefetch_multiplier: 1
+      max_tasks_per_child: 100
+      concurrency: 4
+      
+    result_settings:
+      expires: 86400  # 1 day
+      compression: "gzip"
+      
+    queues:
+      default:
+        exchange: "default"
+        routing_key: "default"
+        queue: "default"
+      high_priority:
+        exchange: "high_priority"
+        routing_key: "high_priority"
+        queue: "high_priority"
+      ml_tasks:
+        exchange: "ml_tasks"
+        routing_key: "ml_tasks"
+        queue: "ml_tasks"
+      reporting:
+        exchange: "reporting"
+        routing_key: "reporting"
+        queue: "reporting"
+      monitoring:
+        exchange: "monitoring"
+        routing_key: "monitoring"
+        queue: "monitoring"
+      low_priority:
+        exchange: "low_priority"
+        routing_key: "low_priority"
+        queue: "low_priority"
+
+# ============================================================================
+# 🔬 Validation Configuration
+# ============================================================================
+validation:
+  schema_version: "1.0.0"
+  strict_validation: true
+  
+  clinical_ranges:
+    pregnancies: [0, 20]
+    glucose: [0, 300]
+    blood_pressure: [0, 200]
+    skin_thickness: [0, 100]
+    insulin: [0, 1000]
+    bmi: [10, 60]
+    diabetes_pedigree: [0, 3]
+    age: [0, 120]
+    
+  expected_ranges:
+    glucose: [70, 140]
+    blood_pressure: [60, 120]
+    bmi: [18.5, 30]
+    age: [18, 65]
+    
+  golden_tests:
+    enabled: true
+    fail_on_error: false
+    tolerance: 0.01
+    
+  adversarial_protection:
+    enabled: true
+    security_level: "HIGH"
+    block_on_injection: true
+    block_on_outlier: false
+    sanitize_inputs: true
+    clamp_to_expected: true
+    detect_anomalies: true
+    anomaly_threshold: 3.0
+
+# ============================================================================
+# 🚀 Deployment Configuration
+# ============================================================================
+deployment:
+  environment: "production"
+  region: "us-east-1"
+  container_registry: "docker.io/cdss"
+  
+  kubernetes:
+    enabled: false
+    namespace: "healthcare"
+    replicas: 3
+    min_replicas: 2
+    max_replicas: 10
+    cpu_request: "250m"
+    cpu_limit: "500m"
+    memory_request: "512Mi"
+    memory_limit: "1Gi"
+    
+  canary:
+    enabled: false
+    percentage: 0.05
+    duration: 300  # seconds (5 minutes)
+    rollback_threshold: 0.05  # 5% error rate triggers rollback
+    
+  rollback:
+    enabled: true
+    auto_rollback: true
+    trigger_threshold: 0.1
+
+# ============================================================================
+# 📝 Logging Configuration
+# ============================================================================
+logging:
+  level: "INFO"
+  format: "json"
+  handlers:
+    - "console"
+    - "file"
+    - "loki"
+    
+  file:
+    path: "outputs/logs/cdss.log"
+    max_size: 104857600  # 100MB
+    backup_count: 5
+    rotation: "daily"
+    
+  loki:
+    enabled: false
+    url: "http://loki:3100/loki/api/v1/push"
+    labels:
+      app: "cdss"
+      environment: "production"

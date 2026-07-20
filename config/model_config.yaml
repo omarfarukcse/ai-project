@@ -1,0 +1,51 @@
+# config/model_config.yaml
+# Model Configuration
+
+models:
+  - "logistic_regression"
+  - "random_forest"
+  - "xgboost"
+  - "lightgbm"
+
+search_type: "grid"
+cv_folds: 5
+primary_metric: "recall"
+secondary_metric: "specificity"
+improvement_threshold: 0.01
+
+calibration_method: "platt"
+
+logistic_regression:
+  C: 1.0
+  penalty: "l2"
+  solver: "liblinear"
+  max_iter: 1000
+  class_weight: "balanced"
+
+random_forest:
+  n_estimators: 200
+  max_depth: 10
+  min_samples_split: 5
+  min_samples_leaf: 2
+  max_features: "sqrt"
+  class_weight: "balanced"
+
+xgboost:
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.1
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_weight: 1
+  gamma: 0
+  scale_pos_weight: 1
+
+lightgbm:
+  n_estimators: 200
+  max_depth: -1
+  learning_rate: 0.1
+  num_leaves: 31
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_samples: 20
+  class_weight: "balanced"

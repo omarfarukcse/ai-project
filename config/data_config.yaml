@@ -1,0 +1,72 @@
+# config/data_config.yaml
+# Data-Specific Configuration
+
+dataset_type: "diabetes"
+
+preprocessing:
+  imputation:
+    strategy: "median"
+    method: "simple"
+  
+  scaling:
+    method: "standard"
+  
+  balancing:
+    method: "smote"
+    k_neighbors: 5
+  
+  feature_engineering: true
+  
+  test_size: 0.2
+  validation_size: 0.1
+  random_state: 42
+
+clinical_features:
+  diabetes:
+    - "pregnancies"
+    - "glucose"
+    - "blood_pressure"
+    - "skin_thickness"
+    - "insulin"
+    - "bmi"
+    - "diabetes_pedigree"
+    - "age"
+    
+  heart_disease:
+    - "age"
+    - "sex"
+    - "cp"
+    - "trestbps"
+    - "chol"
+    - "fbs"
+    - "restecg"
+    - "thalach"
+    - "exang"
+    - "oldpeak"
+    - "slope"
+    - "ca"
+    - "thal"
+
+categorical_features:
+  - "sex"
+  - "cp"
+  - "fbs"
+  - "restecg"
+  - "exang"
+  - "slope"
+  - "ca"
+  - "thal"
+
+numerical_features:
+  - "age"
+  - "trestbps"
+  - "chol"
+  - "thalach"
+  - "oldpeak"
+  - "glucose"
+  - "blood_pressure"
+  - "skin_thickness"
+  - "insulin"
+  - "bmi"
+  - "diabetes_pedigree"
+  - "pregnancies"

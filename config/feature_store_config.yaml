@@ -1,0 +1,46 @@
+# config/feature_store_config.yaml
+# Feature Store Configuration
+
+offline:
+  storage_path: "data/feature_store/"
+  format: "parquet"
+  compression: "snappy"
+  partition_by: "timestamp"
+
+online:
+  redis_enabled: true
+  cache_ttl: 3600
+  batch_size: 100
+  key_prefix: "cdss:feature:"
+
+features:
+  - name: "patient_risk_score"
+    type: "numerical"
+    description: "Computed risk score from model"
+    group: "risk"
+    compute_function: "model.predict_proba"
+    dependencies: ["glucose", "bmi", "age"]
+    
+  - name: "patient_age_group"
+    type: "categorical"
+    description: "Age group classification"
+    group: "demographics"
+    categories: ["young", "middle", "senior", "elderly"]
+    
+  - name: "bmi_category"
+    type: "categorical"
+    description: "BMI category"
+    group: "clinical"
+    categories: ["underweight", "normal", "overweight", "obese"]
+    
+  - name: "glucose_trend"
+    type: "numerical"
+    description: "Glucose trend over time"
+    group: "clinical"
+    window: 7
+
+feature_groups:
+  demographics: ["age", "sex", "patient_age_group"]
+  clinical: ["glucose", "bmi", "blood_pressure", "bmi_category"]
+  risk: ["patient_risk_score", "glucose_trend"]
+  interaction: ["glucose_bmi_ratio", "age_glucose_interaction"]
