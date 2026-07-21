@@ -8,8 +8,8 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.27%2B-blue.svg)](https://kubernetes.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![CI](https://github.com/your-org/cdss-healthcare/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/cdss-healthcare/actions/workflows/ci.yml)
-[![CD](https://github.com/your-org/cdss-healthcare/actions/workflows/cd.yml/badge.svg)](https://github.com/your-org/cdss-healthcare/actions/workflows/cd.yml)
+[![CI](https://github.com/omarfarukcse/ai-project/actions/workflows/ci.yml/badge.svg)](https://github.com/omarfarukcse/ai-project/actions/workflows/ci.yml)
+[![CD](https://github.com/omarfarukcse/ai-project/actions/workflows/cd.yml/badge.svg)](https://github.com/omarfarukcse/ai-project/actions/workflows/cd.yml)
 
 ---
 
@@ -252,8 +252,8 @@ User Request → API Gateway → Middleware Stack → Route Handler
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/cdss-healthcare.git
-cd cdss-healthcare
+git clone https://github.com/omarfarukcse/ai-project.git
+cd ai-project
 
 # Create virtual environment
 python -m venv venv
@@ -715,17 +715,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- **AI Healthcare Team** - [@ai-healthcare](https://github.com/ai-healthcare)
-- **ML Engineering** - [@ml-eng](https://github.com/ml-eng)
-- **Clinical Informatics** - [@clinical-ai](https://github.com/clinical-ai)
+- **AI Healthcare Team** - [@omarfarukcse](https://github.com/omarfarukcse)
+- **ML Engineering** - [@omarfarukcse](https://github.com/omarfarukcse)
+- **Clinical Informatics** - [@omarfarukcse](https://github.com/omarfarukcse)
 
 ---
 
 ## 📞 Support
 
 - **Documentation**: [https://docs.cdss-healthcare.com](https://docs.cdss-healthcare.com)
-- **Issues**: [GitHub Issues](https://github.com/your-org/cdss-healthcare/issues)
-- **Email**: support@cdss-healthcare.com
+- **Issues**: [GitHub Issues](https://github.com/omarfarukcse/ai-project/issues)
+- **Email**: omarfarukcse@gmail.com
 
 ---
 
@@ -739,10 +739,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 Badges
 
-[![CI](https://github.com/your-org/cdss-healthcare/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/cdss-healthcare/actions/workflows/ci.yml)
-[![CD](https://github.com/your-org/cdss-healthcare/actions/workflows/cd.yml/badge.svg)](https://github.com/your-org/cdss-healthcare/actions/workflows/cd.yml)
-[![Coverage](https://codecov.io/gh/your-org/cdss-healthcare/branch/main/graph/badge.svg)](https://codecov.io/gh/your-org/cdss-healthcare)
-[![Docker Pulls](https://img.shields.io/docker/pulls/your-org/cdss-api.svg)](https://hub.docker.com/r/your-org/cdss-api)
+[![CI](https://github.com/omarfarukcse/ai-project/actions/workflows/ci.yml/badge.svg)](https://github.com/omarfarukcse/ai-project/actions/workflows/ci.yml)
+[![CD](https://github.com/omarfarukcse/ai-project/actions/workflows/cd.yml/badge.svg)](https://github.com/omarfarukcse/ai-project/actions/workflows/cd.yml)
+[![Coverage](https://codecov.io/gh/omarfarukcse/ai-project/branch/main/graph/badge.svg)](https://codecov.io/gh/omarfarukcse/ai-project)
+[![Docker Pulls](https://img.shields.io/docker/pulls/omarfarukcse/cdss-api.svg)](https://hub.docker.com/r/omarfarukcse/cdss-api)
 
 ---
 
