@@ -1,11 +1,51 @@
 # docker-compose.yml
-# Local Development Stack
+# Development Stack with All Services
 
 version: '3.8'
 
 services:
+  # ============================================================================
+  # 🚀 API Service
+  # ============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cdss-api:latest
+    container_name: cdss-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=INFO
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=cdss
+      - DB_USER=cdss
+      - DB_PASSWORD=cdss_password
+      - JWT_SECRET_KEY=dev_secret_key_change_in_production
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+    networks:
+      - cdss-network
+    restart: unless-stopped
+
+  # ============================================================================
+  # 📊 Redis Cache
+  # ============================================================================
   redis:
     image: redis:7-alpine
+    container_name: cdss-redis
     ports:
       - "6379:6379"
     volumes:
@@ -15,9 +55,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - cdss-network
+    restart: unless-stopped
 
+  # ============================================================================
+  # 🗄️ PostgreSQL Database
+  # ============================================================================
   postgres:
     image: postgres:15-alpine
+    container_name: cdss-postgres
     environment:
       POSTGRES_DB: cdss
       POSTGRES_USER: cdss
@@ -31,70 +78,79 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - cdss-network
+    restart: unless-stopped
 
+  # ============================================================================
+  # 📊 MLflow Server
+  # ============================================================================
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.3.0
-    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://cdss:cdss_password@postgres:5432/cdss --default-artifact-root ./mlflow-artifacts
+    container_name: cdss-mlflow
     ports:
       - "5000:5000"
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://cdss:cdss_password@postgres:5432/cdss
+      --default-artifact-root ./mlflow-artifacts
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - mlflow-data:/mlflow-artifacts
+    networks:
+      - cdss-network
+    restart: unless-stopped
 
+  # ============================================================================
+  # 📊 Celery Worker
+  # ============================================================================
   celery-worker:
     build:
       context: .
-      dockerfile: infrastructure/docker/Dockerfile
-    command: celery -A src.async_tasks.celery_worker worker --loglevel=info --concurrency=2
+      dockerfile: Dockerfile
+    image: cdss-api:latest
+    container_name: cdss-celery-worker
+    command: celery -A src.async_tasks.celery_worker worker --loglevel=info --concurrency=4
     environment:
+      - ENVIRONMENT=development
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DB_HOST=postgres
+      - DB_NAME=cdss
+      - DB_USER=cdss
+      - DB_PASSWORD=cdss_password
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     volumes:
       - ./models:/app/models
       - ./data:/app/data
       - ./outputs:/app/outputs
+    networks:
+      - cdss-network
+    restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
+# ============================================================================
+# 📊 Networks
+# ============================================================================
+networks:
+  cdss-network:
+    name: cdss-network
+    driver: bridge
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
-    depends_on:
-      - prometheus
-
-  loki:
-    image: grafana/loki:latest
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml
-      - loki-data:/loki
-    command: -config.file=/etc/loki/loki-config.yaml
-
+# ============================================================================
+# 📊 Volumes
+# ============================================================================
 volumes:
   redis-data:
+    name: cdss-redis-data
   postgres-data:
+    name: cdss-postgres-data
   mlflow-data:
-  prometheus-data:
-  grafana-data:
-  loki-data:
+    name: cdss-mlflow-data

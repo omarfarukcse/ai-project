@@ -1,0 +1,86 @@
+
+{
+  "diabetes": {
+    "diagnostic_criteria": {
+      "fasting_glucose": "≥ 126 mg/dL",
+      "hba1c": "≥ 6.5%",
+      "oral_glucose_tolerance": "≥ 200 mg/dL"
+    },
+    "primary_treatment": "Lifestyle modifications and Metformin",
+    "alternative_treatments": [
+      "SGLT2 inhibitors",
+      "GLP-1 agonists",
+      "DPP-4 inhibitors"
+    ],
+    "monitoring": {
+      "hba1c": "Every 3-6 months",
+      "blood_pressure": "Every visit",
+      "lipid_profile": "Annually"
+    },
+    "lifestyle": [
+      "Diet: Low glycemic index, portion control",
+      "Exercise: 150 min/week moderate activity",
+      "Weight: 5-10% reduction if overweight"
+    ],
+    "referral_criteria": [
+      "HbA1c > 9%",
+      "Frequent hypoglycemia",
+      "Complications present"
+    ]
+  },
+  "heart_disease": {
+    "diagnostic_criteria": {
+      "ecg": "ST-T wave changes",
+      "stress_test": "Positive for ischemia",
+      "cardiac_enzymes": "Elevated"
+    },
+    "primary_treatment": "Aspirin and Statins",
+    "alternative_treatments": [
+      "Beta-blockers",
+      "ACE inhibitors",
+      "Calcium channel blockers"
+    ],
+    "monitoring": {
+      "ecg": "As needed",
+      "lipid_profile": "Every 3-6 months",
+      "blood_pressure": "Every visit"
+    },
+    "lifestyle": [
+      "Diet: Heart-healthy, low sodium",
+      "Exercise: Cardiac rehabilitation",
+      "Smoking cessation"
+    ],
+    "referral_criteria": [
+      "Unstable angina",
+      "Heart failure symptoms",
+      "Complex arrhythmias"
+    ]
+  },
+  "hypertension": {
+    "diagnostic_criteria": {
+      "systolic": "≥ 140 mmHg",
+      "diastolic": "≥ 90 mmHg"
+    },
+    "primary_treatment": "ACE inhibitors and lifestyle changes",
+    "alternative_treatments": [
+      "ARBs",
+      "Calcium channel blockers",
+      "Diuretics"
+    ],
+    "monitoring": {
+      "blood_pressure": "Home monitoring daily",
+      "renal_function": "Annually",
+      "electrolytes": "As needed"
+    },
+    "lifestyle": [
+      "Diet: DASH diet",
+      "Exercise: 150 min/week",
+      "Reduce sodium to < 1500mg/day"
+    ],
+    "referral_criteria": [
+      "Resistant hypertension",
+      "Secondary causes",
+      "End-organ damage"
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "metformin": {
+    "interactions": [
+      {
+        "drug": "insulin",
+        "severity": "Moderate",
+        "mechanism": "Additive hypoglycemic effect",
+        "clinical_effects": "Increased risk of hypoglycemia",
+        "management": "Monitor glucose, adjust insulin dose",
+        "recommendations": ["Monitor blood glucose frequently"]
+      },
+      {
+        "drug": "captopril",
+        "severity": "Minor",
+        "mechanism": "Potential interaction",
+        "clinical_effects": "Minimal clinical significance",
+        "management": "No special precautions needed",
+        "recommendations": ["Monitor renal function"]
+      },
+      {
+        "drug": "furosemide",
+        "severity": "Moderate",
+        "mechanism": "Potential interaction",
+        "clinical_effects": "Increased risk of lactic acidosis",
+        "management": "Monitor for signs of lactic acidosis",
+        "recommendations": ["Monitor renal function", "Consider alternative diuretic"]
+      }
+    ],
+    "contraindications": [
+      "Severe renal impairment",
+      "Metabolic acidosis",
+      "Hypersensitivity"
+    ],
+    "precautions": [
+      "Renal impairment",
+      "Liver disease",
+      "Heart failure"
+    ]
+  },
+  "aspirin": {
+    "interactions": [
+      {
+        "drug": "warfarin",
+        "severity": "Major",
+        "mechanism": "Increased bleeding risk",
+        "clinical_effects": "Increased bleeding risk",
+        "management": "Monitor INR, consider avoiding combination",
+        "recommendations": ["Monitor for bleeding", "Adjust warfarin dose"]
+      },
+      {
+        "drug": "ibuprofen",
+        "severity": "Moderate",
+        "mechanism": "Decreased antiplatelet effect",
+        "clinical_effects": "Increased cardiovascular risk",
+        "management": "Avoid combination if possible",
+        "recommendations": ["Use alternative analgesic"]
+      }
+    ],
+    "contraindications": [
+      "Active bleeding",
+      "Aspirin allergy",
+      "Peptic ulcer disease"
+    ],
+    "precautions": [
+      "Gastrointestinal bleeding risk",
+      "Renal impairment",
+      "Asthma"
+    ]
+  },
+  "lisinopril": {
+    "interactions": [
+      {
+        "drug": "potassium_supplements",
+        "severity": "Moderate",
+        "mechanism": "Increased potassium levels",
+        "clinical_effects": "Risk of hyperkalemia",
+        "management": "Monitor potassium levels",
+        "recommendations": ["Avoid potassium supplements", "Monitor potassium regularly"]
+      },
+      {
+        "drug": "spironolactone",
+        "severity": "Moderate",
+        "mechanism": "Additive hyperkalemia risk",
+        "clinical_effects": "Increased risk of hyperkalemia",
+        "management": "Monitor potassium levels closely",
+        "recommendations": ["Consider alternative diuretic"]
+      }
+    ],
+    "contraindications": [
+      "Pregnancy",
+      "Angioedema",
+      "Hypersensitivity"
+    ],
+    "precautions": [
+      "Renal impairment",
+      "Hyperkalemia",
+      "Hyponatremia"
+    ]
+  }
+}

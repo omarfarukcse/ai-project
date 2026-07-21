@@ -1,88 +1,173 @@
 # docker-compose.prod.yml
-# Production Stack
+# Production Stack with Monitoring
 
 version: '3.8'
 
 services:
+  # ============================================================================
+  # 🚀 API Service - Production
+  # ============================================================================
   api:
-    build:
-      context: .
-      dockerfile: infrastructure/docker/Dockerfile
-    image: cdss-api:latest
+    image: ${REGISTRY}/cdss-api:${TAG:-latest}
+    container_name: cdss-api-prod
     ports:
       - "8000:8000"
     environment:
       - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=WARNING
       - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=cdss_prod
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PROMETHEUS_ENABLED=true
+      - SENTRY_DSN=${SENTRY_DSN}
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
       - models:/app/models
       - data:/app/data
       - logs:/app/logs
-    restart: unless-stopped
     deploy:
       resources:
         limits:
           memory: 2G
         reservations:
           memory: 512M
+      replicas: 3
+    networks:
+      - cdss-network
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # ============================================================================
+  # 📊 Redis Cache - Production
+  # ============================================================================
   redis:
     image: redis:7-alpine
+    container_name: cdss-redis-prod
     ports:
       - "6379:6379"
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cdss-network
     restart: unless-stopped
 
+  # ============================================================================
+  # 🗄️ PostgreSQL Database - Production
+  # ============================================================================
   postgres:
     image: postgres:15-alpine
+    container_name: cdss-postgres-prod
     environment:
-      POSTGRES_DB: cdss
-      POSTGRES_USER: cdss
+      POSTGRES_DB: cdss_prod
+      POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cdss-network
     restart: unless-stopped
 
+  # ============================================================================
+  # 📊 MLflow Server - Production
+  # ============================================================================
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.3.0
-    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://cdss:${DB_PASSWORD}@postgres:5432/cdss --default-artifact-root /mlflow-artifacts
+    container_name: cdss-mlflow-prod
     ports:
       - "5000:5000"
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/cdss_prod
+      --default-artifact-root s3://${S3_BUCKET}/mlflow-artifacts
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     volumes:
       - mlflow-data:/mlflow-artifacts
+    networks:
+      - cdss-network
     restart: unless-stopped
 
+  # ============================================================================
+  # 📊 Celery Worker - Production
+  # ============================================================================
   celery-worker:
-    image: cdss-api:latest
-    command: celery -A src.async_tasks.celery_worker worker --loglevel=info --concurrency=4
+    image: ${REGISTRY}/cdss-api:${TAG:-latest}
+    container_name: cdss-celery-worker-prod
+    command: celery -A src.async_tasks.celery_worker worker --loglevel=warning --concurrency=8
     environment:
       - ENVIRONMENT=production
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
+      - DB_HOST=postgres
+      - DB_NAME=cdss_prod
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
     depends_on:
-      - redis
-      - postgres
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     volumes:
       - models:/app/models
       - data:/app/data
       - logs:/app/logs
+    deploy:
+      replicas: 2
+    networks:
+      - cdss-network
     restart: unless-stopped
 
+# ============================================================================
+# 📊 Networks
+# ============================================================================
+networks:
+  cdss-network:
+    name: cdss-network-prod
+    driver: bridge
+
+# ============================================================================
+# 📊 Volumes
+# ============================================================================
 volumes:
   redis-data:
+    name: cdss-redis-data-prod
   postgres-data:
+    name: cdss-postgres-data-prod
   mlflow-data:
+    name: cdss-mlflow-data-prod
   models:
+    name: cdss-models-prod
   data:
+    name: cdss-data-prod
   logs:
+    name: cdss-logs-prod
