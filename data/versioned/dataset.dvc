@@ -1,0 +1,5 @@
+
+outs:
+- md5: 1234567890abcdef1234567890abcdef
+  size: 1234567
+  path: dataset.parquet

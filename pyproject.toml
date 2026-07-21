@@ -1,86 +1,72 @@
 # pyproject.toml
-# CDSS Healthcare - Python Project Configuration
+# Modern Python Project Configuration
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "setuptools-scm>=8.0"]
 build-backend = "setuptools.build_meta"
 
-# ============================================================================
-# 📦 Project Metadata
-# ============================================================================
 [project]
 name = "cdss-healthcare"
 version = "3.0.0"
 description = "Explainable Clinical Decision Support System for Healthcare"
 readme = "README.md"
 authors = [
-    {name = "AI Healthcare Team", email = "ai@healthcare.com"}
+    {name = "Omar Faruk", email = "omarfarukcse@gmail.com"}
 ]
 license = {text = "MIT"}
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",
-    "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Scientific/Engineering :: Medical Science",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
 ]
-requires-python = ">=3.8,<3.12"
-dynamic = ["dependencies", "optional-dependencies", "entry-points"]
+requires-python = ">=3.8,<3.11"
+dependencies = [
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scikit-learn>=1.0.0",
+    "xgboost>=1.5.0",
+    "lightgbm>=3.3.0",
+    "shap>=0.40.0",
+    "fastapi>=0.85.0",
+    "uvicorn>=0.18.0",
+    "pydantic>=1.10.0",
+    "mlflow>=2.0.0",
+    "celery>=5.2.0",
+    "redis>=4.5.0",
+    "prometheus-client>=0.14.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+]
 
-# ============================================================================
-# 📦 Dependencies (managed in [tool.setuptools.dynamic])
-# ============================================================================
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
-optional-dependencies = {dev = {file = ["requirements-dev.txt"]}}
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.0.0",
+    "bandit>=1.7.0",
+    "sphinx>=7.0.0",
+    "mkdocs>=1.5.0",
+    "locust>=2.20.0",
+]
 
-# ============================================================================
-# 🏗️ Package Discovery
-# ============================================================================
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["src*"]
-exclude = ["tests*", "scripts*", "notebooks*", "outputs*"]
-
-[tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml", "*.json", "*.txt"]
-
-# ============================================================================
-# 📂 Project URLs
-# ============================================================================
-[project.urls]
-Homepage = "https://github.com/your-org/cdss-healthcare"
-Documentation = "https://docs.cdss-healthcare.com"
-Repository = "https://github.com/your-org/cdss-healthcare.git"
-Issues = "https://github.com/your-org/cdss-healthcare/issues"
-Changelog = "https://github.com/your-org/cdss-healthcare/blob/main/CHANGELOG.md"
-
-# ============================================================================
-# 🚀 Console Scripts (Entry Points)
-# ============================================================================
-[project.entry-points."console_scripts"]
+[project.scripts]
 cdss-train = "scripts.train:main"
 cdss-deploy = "scripts.deploy:main"
 cdss-validate = "scripts.validate:main"
 cdss-promote = "scripts.promote_model:main"
 cdss-register = "scripts.register_model:main"
-cdss-api = "src.api.app:start_app"
-cdss-dashboard = "streamlit:run"
 
-# ============================================================================
-# 🎨 Code Formatting (Black)
-# ============================================================================
 [tool.black]
 line-length = 127
 target-version = ['py38', 'py39', 'py310']
-include = '\.pyi?$'
-extend-exclude = '''
+exclude = '''
 /(
     \.eggs
   | \.git
@@ -96,9 +82,6 @@ extend-exclude = '''
 )/
 '''
 
-# ============================================================================
-# 📦 Import Sorting (isort)
-# ============================================================================
 [tool.isort]
 profile = "black"
 line_length = 127
@@ -106,83 +89,26 @@ multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
-ensure_newline_before_comments = true
-known_first_party = ["src", "scripts", "tests"]
-known_third_party = [
-    "numpy", "pandas", "sklearn", "xgboost", "lightgbm",
-    "shap", "matplotlib", "seaborn", "plotly",
-    "fastapi", "uvicorn", "pydantic", "streamlit",
-    "mlflow", "celery", "redis", "prometheus_client",
-    "aiofiles", "pandera"
-]
 
-# ============================================================================
-# 🔍 Type Checking (mypy)
-# ============================================================================
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
 ignore_missing_imports = true
 no_implicit_optional = true
 strict_optional = true
-disallow_untyped_defs = false
-disallow_any_unimported = false
-follow_imports = "silent"
 
-[[tool.mypy.overrides]]
-module = [
-    "tests.*",
-    "scripts.*",
-    "notebooks.*",
-]
-disallow_untyped_defs = false
-ignore_errors = true
-
-# ============================================================================
-# 🧪 Testing (pytest)
-# ============================================================================
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = [
-    "--tb=short",
-    "--strict-markers",
-    "--strict-config"
-]
+addopts = ["--tb=short", "--strict-markers"]
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*", "*Test"]
-python_functions = ["test_*", "*_test"]
-markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
-    "slow: Slow tests",
-    "api: API tests",
-    "load: Load tests",
-]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::UserWarning",
-    "ignore::FutureWarning",
-]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
 
-# ============================================================================
-# 📊 Coverage (pytest-cov)
-# ============================================================================
 [tool.coverage.run]
 source = ["src"]
-omit = [
-    "*/tests/*",
-    "*/scripts/*",
-    "*/notebooks/*",
-    "*/outputs/*",
-    "*/__pycache__/*",
-    "*/site-packages/*",
-]
+omit = ["*/tests/*", "*/scripts/*", "*/outputs/*"]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -191,54 +117,6 @@ exclude_lines = [
     "if self.debug:",
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "pass",
-    "return NotImplemented",
 ]
 show_missing = true
-skip_covered = false
 precision = 2
-
-[tool.coverage.html]
-directory = "htmlcov"
-
-# ============================================================================
-# 📚 Documentation (Sphinx)
-# ============================================================================
-[tool.sphinx]
-build_dir = "docs/_build"
-source_dir = "docs/source"
-
-# ============================================================================
-# 🏷️ Project Tags (optional)
-# ============================================================================
-[tool.poetry]
-# This section is for Poetry users (optional)
-# If you're using Poetry, uncomment these lines
-# package-mode = false
-# 
-# [tool.poetry.dependencies]
-# python = ">=3.8,<3.12"
-# 
-# [tool.poetry.group.dev.dependencies]
-# black = "^23.11.0"
-# isort = "^5.12.0"
-# pytest = "^7.4.0"
-# pytest-cov = "^4.1.0"
-# pytest-xdist = "^3.5.0"
-# sphinx = "^7.2.0"
-# mypy = "^1.7.0"
-# pre-commit = "^3.5.0"
-# locust = "^2.20.0"
-# httpx = "^0.25.0"
-
-# ============================================================================
-# 🔧 Pyright (VSCode)
-# ============================================================================
-[tool.pyright]
-include = ["src", "scripts"]
-exclude = ["**/__pycache__", "**/node_modules", "**/.venv", "**/.git"]
-reportMissingImports = "warning"
-reportMissingTypeStubs = "warning"
-reportGeneralTypeIssues = "warning"
-pythonVersion = "3.8"

@@ -1,0 +1,13 @@
+# data/versioned/models/model_v1.pkl.dvc
+# DVC file for tracking model_v1.pkl
+
+outs:
+  - md5: 0cc175b9c0f1b6a831c399e269772661
+    size: 1234567890
+    hash: md5
+    path: model_v1.pkl
+  - md5: 0cc175b9c0f1b6a831c399e269772662
+    size: 1024
+    hash: md5
+    path: model_v1.metadata.json
+    cache: true
