@@ -34,7 +34,6 @@ from src.validation.schema_validation import (
     # Pandera Schemas
     ClinicalDataSchema,
     PatientSchema,
-    PredictionSchema,
     TrainingDataSchema,
     
     # Golden Tests
@@ -45,13 +44,10 @@ from src.validation.schema_validation import (
     # Validators
     ClinicalValidator,
     DataValidator,
-    ModelValidator,
-    GoldenTestRunner,
     
     # Utilities
     ValidationResult,
     ValidationError,
-    ValidationConfig,
     get_validator,
 )
 
@@ -66,7 +62,6 @@ __all__ = [
     # Pandera Schemas
     "ClinicalDataSchema",
     "PatientSchema",
-    "PredictionSchema",
     "TrainingDataSchema",
     
     # Golden Tests
@@ -77,13 +72,10 @@ __all__ = [
     # Validators
     "ClinicalValidator",
     "DataValidator",
-    "ModelValidator",
-    "GoldenTestRunner",
     
     # Utilities
     "ValidationResult",
     "ValidationError",
-    "ValidationConfig",
     "get_validator",
 ]
 

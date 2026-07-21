@@ -28,18 +28,13 @@ Version: 3.0.0
 
 from src.feature_store.feature_engineering import (
     FeatureEngineer,
-    FeatureTransformer,
-    FeatureCreator,
-    AggregationFeature,
-    InteractionFeature,
-    DerivedFeature,
+    FeatureDefinition,
+    FeatureType,
+    FeatureStatus,
     FeatureGroup,
 )
 from src.feature_store.feature_registry import (
     FeatureRegistry,
-    FeatureDefinition,
-    FeatureType,
-    FeatureStatus,
     FeatureVersion,
     FeatureCatalog,
 )
@@ -54,11 +49,9 @@ __version__ = "3.0.0"
 __all__ = [
     # Feature Engineering
     "FeatureEngineer",
-    "FeatureTransformer",
-    "FeatureCreator",
-    "AggregationFeature",
-    "InteractionFeature",
-    "DerivedFeature",
+    "FeatureDefinition",
+    "FeatureType",
+    "FeatureStatus",
     "FeatureGroup",
     
     # Feature Registry

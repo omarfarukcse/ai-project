@@ -142,7 +142,7 @@ class ClinicalDataModel(BaseModel):
                 logger.warning(f"Low blood pressure detected: {v} mm Hg")
         return v
     
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_complete(cls, values):
         """Validate that at least some clinical data is provided"""
         # Skip validation fields
@@ -292,8 +292,8 @@ class ClinicalDataSchema(pa.SchemaModel):
     target: Series[int] = pa.Field(ge=0, le=1, nullable=True)
     
     # Metadata
-    patient_id: Series[str] = pa.Field(str, nullable=True)
-    timestamp: Series[datetime] = pa.Field(datetime, nullable=True)
+    patient_id: Series[str] = pa.Field(nullable=True)
+    timestamp: Series[datetime] = pa.Field(nullable=True)
     
     @pa.check("age")
     def check_age_consistency(cls, age: Series[int]) -> Series[bool]:
@@ -326,13 +326,13 @@ class ClinicalDataSchema(pa.SchemaModel):
 class PatientSchema(pa.SchemaModel):
     """Patient data schema with PII"""
     
-    patient_id: Series[str] = pa.Field(str, unique=True)
-    name: Series[str] = pa.Field(str, nullable=True)
-    date_of_birth: Series[datetime] = pa.Field(datetime, nullable=True)
+    patient_id: Series[str] = pa.Field(unique=True)
+    name: Series[str] = pa.Field(nullable=True)
+    date_of_birth: Series[datetime] = pa.Field(nullable=True)
     age: Series[int] = pa.Field(ge=0, le=120, nullable=True)
     gender: Series[str] = pa.Field(isin=["male", "female", "other"], nullable=True)
-    email: Series[str] = pa.Field(str, nullable=True)
-    phone: Series[str] = pa.Field(str, nullable=True)
+    email: Series[str] = pa.Field(nullable=True)
+    phone: Series[str] = pa.Field(nullable=True)
     
     @pa.check("email")
     def check_email_format(cls, email: Series[str]) -> Series[bool]:

@@ -47,8 +47,6 @@ from src.monitoring.prometheus import (
 from src.monitoring.drift_detection import (
     DriftDetector,
     DriftReport,
-    DataDriftDetector,
-    ModelDriftDetector,
     DriftType,
     get_drift_detector,
 )
@@ -57,8 +55,6 @@ from src.monitoring.bias_monitor import (
     BiasReport,
     FairnessMetrics,
     ProtectedAttribute,
-    DemographicParity,
-    EqualOpportunity,
     get_bias_monitor,
 )
 from src.monitoring.alerting import (
@@ -91,8 +87,6 @@ __all__ = [
     # Drift Detection
     "DriftDetector",
     "DriftReport",
-    "DataDriftDetector",
-    "ModelDriftDetector",
     "DriftType",
     "get_drift_detector",
     
@@ -101,8 +95,6 @@ __all__ = [
     "BiasReport",
     "FairnessMetrics",
     "ProtectedAttribute",
-    "DemographicParity",
-    "EqualOpportunity",
     "get_bias_monitor",
     
     # Alerting
