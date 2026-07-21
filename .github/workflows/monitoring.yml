@@ -1,0 +1,535 @@
+# .github/workflows/monitoring.yml
+# Monitoring Pipeline - Automated Monitoring and Alerting
+
+name: Monitoring Pipeline
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+    inputs:
+      check_type:
+        description: 'Type of check to run'
+        type: choice
+        options:
+          - all
+          - drift
+          - performance
+          - bias
+          - health
+        default: 'all'
+      environment:
+        description: 'Environment to monitor'
+        type: choice
+        options:
+          - production
+          - staging
+        default: 'production'
+
+jobs:
+  # ============================================================================
+  # 📊 Data Drift Detection
+  # ============================================================================
+  data-drift:
+    name: Data Drift Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install evidently alibi-detect
+      
+      - name: Download reference data
+        run: |
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/data/reference_data.csv data/reference_data.csv
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Download current data
+        run: |
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/data/current_data.csv data/current_data.csv
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Run drift detection
+        id: drift
+        run: |
+          python -c "
+          import pandas as pd
+          from src.monitoring.drift_detection import DriftDetector
+          
+          # Load data
+          reference = pd.read_csv('data/reference_data.csv')
+          current = pd.read_csv('data/current_data.csv')
+          
+          # Detect drift
+          detector = DriftDetector(reference)
+          report = detector.detect_data_drift(current)
+          
+          # Save report
+          import json
+          with open('drift_report.json', 'w') as f:
+              json.dump(report.to_dict(), f, indent=2)
+          
+          # Output summary
+          print(f'DRIFT_DETECTED={report.drift_detected}')
+          print(f'DRIFT_SCORE={report.drift_score}')
+          print(f'DRIFTED_FEATURES={len(report.features_drifted)}')
+          "
+      
+      - name: Upload drift report
+        uses: actions/upload-artifact@v3
+        with:
+          name: drift-report
+          path: drift_report.json
+      
+      - name: Alert on drift
+        if: steps.drift.outputs.DRIFT_DETECTED == 'True'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('drift_report.json', 'utf8'));
+            
+            const message = `
+            🚨 **Data Drift Detected!**
+            
+            **Environment:** ${{ inputs.environment || 'production' }}
+            **Drift Score:** ${report.drift_score}
+            **Drifted Features:** ${report.features_drifted.join(', ')}
+            **Timestamp:** ${report.timestamp}
+            
+            Please investigate and consider retraining the model.
+            `;
+            
+            // Create issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[MONITORING] Data Drift Detected - ${new Date().toISOString().split('T')[0]}`,
+              body: message,
+              labels: ['monitoring', 'drift', 'critical']
+            });
+
+  # ============================================================================
+  # 🎯 Model Performance Monitoring
+  # ============================================================================
+  model-performance:
+    name: Model Performance Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Download production model
+        run: |
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/models/production/model.pkl models/production/model.pkl
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Download test data
+        run: |
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/data/test_data.parquet data/test_data.parquet
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Evaluate model performance
+        id: performance
+        run: |
+          python -c "
+          import pandas as pd
+          import pickle
+          from src.components.model_evaluation import ModelEvaluator
+          
+          # Load model
+          with open('models/production/model.pkl', 'rb') as f:
+              model = pickle.load(f)
+          
+          # Load test data
+          data = pd.read_parquet('data/test_data.parquet')
+          X_test = data.drop('target', axis=1)
+          y_test = data['target']
+          
+          # Evaluate
+          evaluator = ModelEvaluator()
+          metrics = evaluator.evaluate_model(model, X_test, y_test)
+          
+          # Save report
+          import json
+          with open('performance_report.json', 'w') as f:
+              json.dump(metrics.to_dict(), f, indent=2)
+          
+          # Output summary
+          print(f'ACCURACY={metrics.accuracy}')
+          print(f'RECALL={metrics.recall}')
+          print(f'PRECISION={metrics.precision}')
+          print(f'F1_SCORE={metrics.f1_score}')
+          print(f'ROC_AUC={metrics.roc_auc}')
+          "
+      
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: performance_report.json
+      
+      - name: Check performance thresholds
+        id: check
+        run: |
+          RECALL=$(python -c "import json; print(json.load(open('performance_report.json'))['recall'])")
+          if (( $(echo "$RECALL < 0.7" | bc -l) )); then
+            echo "PERFORMANCE_DEGRADED=true" >> $GITHUB_OUTPUT
+            echo "RECALL=$RECALL" >> $GITHUB_OUTPUT
+          else
+            echo "PERFORMANCE_DEGRADED=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Alert on performance degradation
+        if: steps.check.outputs.PERFORMANCE_DEGRADED == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('performance_report.json', 'utf8'));
+            
+            const message = `
+            🚨 **Model Performance Degraded!**
+            
+            **Environment:** ${{ inputs.environment || 'production' }}
+            **Recall:** ${report.recall} (Threshold: 0.7)
+            **Accuracy:** ${report.accuracy}
+            **F1 Score:** ${report.f1_score}
+            
+            Model performance has dropped below acceptable thresholds.
+            Immediate action required: Consider rollback or retraining.
+            `;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[MONITORING] Model Performance Degraded - ${new Date().toISOString().split('T')[0]}`,
+              body: message,
+              labels: ['monitoring', 'performance', 'critical']
+            });
+
+  # ============================================================================
+  # ⚖️ Bias Monitoring
+  # ============================================================================
+  bias-monitoring:
+    name: Bias Monitoring
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Download model and test data
+        run: |
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/models/production/model.pkl models/production/model.pkl
+          aws s3 cp s3://${{ secrets.S3_BUCKET }}/data/bias_test_data.parquet data/bias_test_data.parquet
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Audit bias
+        id: bias
+        run: |
+          python -c "
+          import pandas as pd
+          import pickle
+          from src.monitoring.bias_monitor import BiasMonitor
+          
+          # Load model
+          with open('models/production/model.pkl', 'rb') as f:
+              model = pickle.load(f)
+          
+          # Load test data
+          data = pd.read_parquet('data/bias_test_data.parquet')
+          X_test = data.drop(['target', 'protected_group'], axis=1)
+          y_test = data['target']
+          protected_groups = data['protected_group']
+          
+          # Audit bias
+          monitor = BiasMonitor()
+          report = monitor.audit_bias(
+              predictions=model.predict(X_test),
+              targets=y_test,
+              protected_groups=protected_groups,
+              attribute_name='protected_group'
+          )
+          
+          # Save report
+          import json
+          with open('bias_report.json', 'w') as f:
+              json.dump(report.to_dict(), f, indent=2)
+          
+          # Output summary
+          print(f'VIOLATIONS={len(report.fairness_violations)}')
+          print(f'SEVERITY={report.severity}')
+          "
+      
+      - name: Upload bias report
+        uses: actions/upload-artifact@v3
+        with:
+          name: bias-report
+          path: bias_report.json
+      
+      - name: Alert on bias violations
+        if: steps.bias.outputs.VIOLATIONS > 0
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('bias_report.json', 'utf8'));
+            
+            const message = `
+            ⚖️ **Bias Violations Detected!**
+            
+            **Environment:** ${{ inputs.environment || 'production' }}
+            **Violations:** ${report.fairness_violations.join('\n- ')}
+            **Severity:** ${report.severity}
+            
+            Fairness issues detected in model predictions.
+            Please review and address the bias.
+            `;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[MONITORING] Bias Violations Detected - ${new Date().toISOString().split('T')[0]}`,
+              body: message,
+              labels: ['monitoring', 'bias', 'fairness']
+            });
+
+  # ============================================================================
+  # 🏥 System Health Check
+  # ============================================================================
+  system-health:
+    name: System Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install requests prometheus-api-client
+      
+      - name: Health check API
+        run: |
+          curl -f https://${{ secrets.API_URL }}/health || exit 1
+          echo "✅ API Health Check Passed"
+      
+      - name: Check Prometheus metrics
+        run: |
+          python -c "
+          from prometheus_api_client import PrometheusConnect
+          
+          prom = PrometheusConnect(url='http://${{ secrets.PROMETHEUS_URL }}:9090')
+          
+          # Check metrics
+          metrics = [
+              'cdss_requests_total',
+              'cdss_request_latency_seconds',
+              'cdss_model_recall',
+              'system_cpu_percent',
+              'system_memory_percent'
+          ]
+          
+          status = {
+              'metric_count': len(metrics),
+              'metrics_reachable': prom.check_prometheus_connection()
+          }
+          
+          import json
+          with open('health_report.json', 'w') as f:
+              json.dump(status, f, indent=2)
+          "
+      
+      - name: Upload health report
+        uses: actions/upload-artifact@v3
+        with:
+          name: health-report
+          path: health_report.json
+      
+      - name: Check service health
+        run: |
+          python -c "
+          import json
+          import requests
+          import sys
+          
+          # Check all services
+          services = {
+              'API': 'https://${{ secrets.API_URL }}/health',
+              'Prometheus': 'http://${{ secrets.PROMETHEUS_URL }}:9090/-/healthy',
+              'Grafana': 'http://${{ secrets.GRAFANA_URL }}:3000/api/health',
+              'Redis': 'http://${{ secrets.REDIS_URL }}:6379/ping',
+          }
+          
+          unhealthy = []
+          for name, url in services.items():
+              try:
+                  response = requests.get(url, timeout=5)
+                  if response.status_code != 200:
+                      unhealthy.append(name)
+              except:
+                  unhealthy.append(name)
+          
+          if unhealthy:
+              print(f'Unhealthy services: {unhealthy}')
+              sys.exit(1)
+          else:
+              print('All services healthy ✅')
+          "
+
+  # ============================================================================
+  # 📊 Aggregate Report
+  # ============================================================================
+  aggregate-report:
+    name: Generate Monitoring Report
+    runs-on: ubuntu-latest
+    needs: [data-drift, model-performance, bias-monitoring, system-health]
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Download all reports
+        uses: actions/download-artifact@v3
+        with:
+          path: reports/
+      
+      - name: Generate aggregated report
+        run: |
+          python -c "
+          import json
+          from pathlib import Path
+          from datetime import datetime
+          
+          report = {
+              'timestamp': datetime.now().isoformat(),
+              'environment': '${{ inputs.environment || 'production' }}',
+              'status': 'complete',
+              'checks': {}
+          }
+          
+          # Load all reports
+          for report_file in Path('reports').glob('**/*.json'):
+              try:
+                  with open(report_file, 'r') as f:
+                      data = json.load(f)
+                      check_name = report_file.parent.name.replace('-report', '')
+                      report['checks'][check_name] = data
+              except:
+                  pass
+          
+          # Determine overall status
+          statuses = []
+          for check, data in report['checks'].items():
+              if 'drift' in check and data.get('drift_detected', False):
+                  statuses.append('warning')
+              elif 'performance' in check and data.get('recall', 1) < 0.7:
+                  statuses.append('critical')
+              elif 'bias' in check and len(data.get('fairness_violations', [])) > 0:
+                  statuses.append('warning')
+          
+          if 'critical' in statuses:
+              report['overall_status'] = 'critical'
+          elif 'warning' in statuses:
+              report['overall_status'] = 'warning'
+          else:
+              report['overall_status'] = 'healthy'
+          
+          with open('monitoring_report.json', 'w') as f:
+              json.dump(report, f, indent=2)
+          "
+      
+      - name: Upload aggregated report
+        uses: actions/upload-artifact@v3
+        with:
+          name: monitoring-report
+          path: monitoring_report.json
+      
+      - name: Upload to S3
+        run: |
+          aws s3 cp monitoring_report.json s3://${{ secrets.S3_BUCKET }}/monitoring/reports/
+          aws s3 cp reports/ s3://${{ secrets.S3_BUCKET }}/monitoring/reports/ --recursive
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+      
+      - name: Send Slack notification
+        if: always()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_CHANNEL: '#cdss-monitoring'
+          SLACK_COLOR: ${{ needs.data-drift.result == 'failure' || needs.model-performance.result == 'failure' || needs.bias-monitoring.result == 'failure' ? 'danger' : 'good' }}
+          SLACK_TITLE: 'CDSS Monitoring Report'
+          SLACK_MESSAGE: |
+            📊 *Monitoring Report*
+            Environment: ${{ inputs.environment || 'production' }}
+            Status: ${{ needs.data-drift.result }}
+            Drift: ${{ needs.data-drift.outputs.DRIFT_DETECTED }}
+            Performance: ${{ needs.model-performance.outputs.PERFORMANCE_DEGRADED }}
+            Bias: ${{ needs.bias-monitoring.outputs.VIOLATIONS }}
+            Health: ${{ needs.system-health.result }}
+            
+            📄 View full report: https://console.aws.amazon.com/s3/buckets/${{ secrets.S3_BUCKET }}/monitoring/reports/

@@ -1,0 +1,46 @@
+# observability/alertmanager/config.yml
+route:
+  group_by: ['alertname', 'cluster']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'pagerduty-receiver'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'slack-receiver'
+      continue: true
+
+receivers:
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'alerts@cdss-healthcare.com'
+        from: 'alertmanager@cdss-healthcare.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alertmanager@cdss-healthcare.com'
+        auth_identity: 'alertmanager@cdss-healthcare.com'
+        auth_password: '${SMTP_PASSWORD}'
+
+  - name: 'slack-receiver'
+    slack_configs:
+      - channel: '#cdss-alerts'
+        api_url: '${SLACK_WEBHOOK_URL}'
+        title: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        fields:
+          - title: Severity
+            value: '{{ .CommonLabels.severity }}'
+          - title: Instance
+            value: '{{ .CommonLabels.instance }}'
+
+  - name: 'pagerduty-receiver'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        routing_key: '${PAGERDUTY_ROUTING_KEY}'
+        send_resolved: true
+        severity: '{{ .CommonLabels.severity }}'
+        description: '{{ .CommonAnnotations.summary }}'

@@ -1,0 +1,97 @@
+# infrastructure/kubernetes/network-policy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cdss-network-policy
+  namespace: cdss
+  labels:
+    app: cdss
+    component: network-policy
+    environment: production
+spec:
+  podSelector:
+    matchLabels:
+      app: cdss
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from Ingress Controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow health checks
+  - from:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          component: kube-proxy
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow Prometheus scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+  # Allow Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: cdss
+          component: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: cdss
+          component: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow MLflow
+  - to:
+    - podSelector:
+        matchLabels:
+          app: cdss
+          component: mlflow
+    ports:
+    - protocol: TCP
+      port: 5000
+  # Allow S3 (if using)
+  - to:
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          app: aws
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80

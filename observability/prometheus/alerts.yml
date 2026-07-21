@@ -1,0 +1,42 @@
+# observability/prometheus/alerts.yml
+groups:
+  - name: cdss_critical_alerts
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up{job="cdss-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CDSS API service is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+          dashboard_url: "http://grafana:3000/d/cdss-dashboard"
+
+      - alert: HighErrorRate
+        expr: rate(cdss_requests_total{status="500"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate"
+          description: "Error rate is {{ $value }} for the last 5 minutes"
+          runbook: "https://wiki.cdss-healthcare.com/runbooks/high-error-rate"
+
+      - alert: ModelPerformanceDegraded
+        expr: cdss_model_recall < 0.7
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Model performance degraded"
+          description: "Model recall dropped to {{ $value }}"
+
+      - alert: DataDriftDetected
+        expr: cdss_drift_score > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data drift detected"
+          description: "Data drift score is {{ $value }}. Consider retraining."

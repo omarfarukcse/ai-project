@@ -1,0 +1,774 @@
+# infrastructure/kubernetes/role.yaml
+# Kubernetes RBAC Roles for CDSS Healthcare System
+
+---
+# ============================================================================
+# 🔑 API Role - Full Access within Namespace
+# ============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cdss-api-role
+  namespace: cdss
+  labels:
+    app: cdss
+    component: rbac
+    environment: production
+    tier: backend
+  annotations:
+    description: "Full role for CDSS API services within namespace"
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+spec: {}
+rules:
+# ============================================================================
+# 📦 Core API Resources
+# ============================================================================
+# Pods - Full access
+- apiGroups: [""]
+  resources:
+  - "pods"
+  - "pods/log"
+  - "pods/status"
+  - "pods/exec"
+  - "pods/attach"
+  - "pods/portforward"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+  - "deletecollection"
+
+# Services - Full access
+- apiGroups: [""]
+  resources:
+  - "services"
+  - "services/status"
+  - "services/proxy"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ConfigMaps - Read/Write
+- apiGroups: [""]
+  resources:
+  - "configmaps"
+  - "configmaps/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# Secrets - Read/Write (with restrictions)
+- apiGroups: [""]
+  resources:
+  - "secrets"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# PersistentVolumeClaims - Full access
+- apiGroups: [""]
+  resources:
+  - "persistentvolumeclaims"
+  - "persistentvolumeclaims/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# Endpoints - Full access
+- apiGroups: [""]
+  resources:
+  - "endpoints"
+  - "endpoints/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# Events - Read/Write
+- apiGroups: [""]
+  resources:
+  - "events"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# Namespaces - Read only
+- apiGroups: [""]
+  resources:
+  - "namespaces"
+  - "namespaces/status"
+  - "namespaces/finalize"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# ResourceQuotas - Read/Write
+- apiGroups: [""]
+  resources:
+  - "resourcequotas"
+  - "resourcequotas/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# LimitRanges - Read/Write
+- apiGroups: [""]
+  resources:
+  - "limitranges"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 📱 Apps Resources
+# ============================================================================
+# Deployments - Full access
+- apiGroups: ["apps"]
+  resources:
+  - "deployments"
+  - "deployments/status"
+  - "deployments/scale"
+  - "deployments/finalizers"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# StatefulSets - Full access
+- apiGroups: ["apps"]
+  resources:
+  - "statefulsets"
+  - "statefulsets/status"
+  - "statefulsets/scale"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# DaemonSets - Full access
+- apiGroups: ["apps"]
+  resources:
+  - "daemonsets"
+  - "daemonsets/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ReplicaSets - Full access
+- apiGroups: ["apps"]
+  resources:
+  - "replicasets"
+  - "replicasets/status"
+  - "replicasets/scale"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 📊 Autoscaling Resources
+# ============================================================================
+# HorizontalPodAutoscalers - Full access
+- apiGroups: ["autoscaling"]
+  resources:
+  - "horizontalpodautoscalers"
+  - "horizontalpodautoscalers/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# VerticalPodAutoscalers - Full access (if using)
+- apiGroups: ["autoscaling.k8s.io"]
+  resources:
+  - "verticalpodautoscalers"
+  - "verticalpodautoscalers/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# ⏰ Batch Resources
+# ============================================================================
+# Jobs - Full access
+- apiGroups: ["batch"]
+  resources:
+  - "jobs"
+  - "jobs/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# CronJobs - Full access
+- apiGroups: ["batch"]
+  resources:
+  - "cronjobs"
+  - "cronjobs/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 🌐 Networking Resources
+# ============================================================================
+# Ingress - Full access
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - "ingresses"
+  - "ingresses/status"
+  - "ingressclasses"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# NetworkPolicies - Full access
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - "networkpolicies"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 🔒 Security Resources
+# ============================================================================
+# ServiceAccounts - Read/Write
+- apiGroups: [""]
+  resources:
+  - "serviceaccounts"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# PodSecurityPolicies - Use (if enabled)
+- apiGroups: ["policy"]
+  resources:
+  - "podsecuritypolicies"
+  verbs:
+  - "use"
+
+# PodDisruptionBudgets - Full access
+- apiGroups: ["policy"]
+  resources:
+  - "poddisruptionbudgets"
+  - "poddisruptionbudgets/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 📊 Monitoring Resources (Prometheus)
+# ============================================================================
+- apiGroups: ["monitoring.coreos.com"]
+  resources:
+  - "servicemonitors"
+  - "podmonitors"
+  - "prometheusrules"
+  - "alertmanagerconfigs"
+  - "alertmanagers"
+  - "probes"
+  - "prometheuses"
+  - "prometheuses/status"
+  - "prometheuses/finalizers"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 🚀 Service Mesh (Istio)
+# ============================================================================
+- apiGroups: ["networking.istio.io"]
+  resources:
+  - "virtualservices"
+  - "destinationrules"
+  - "gateways"
+  - "serviceentries"
+  - "sidecars"
+  - "envoyfilters"
+  - "workloadentries"
+  - "workloadgroups"
+  - "proxyconfigs"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+- apiGroups: ["security.istio.io"]
+  resources:
+  - "authorizationpolicies"
+  - "peerauthentications"
+  - "requestauthentications"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 🔐 Cert Manager
+# ============================================================================
+- apiGroups: ["cert-manager.io"]
+  resources:
+  - "certificates"
+  - "certificates/status"
+  - "issuers"
+  - "issuers/status"
+  - "clusterissuers"
+  - "clusterissuers/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+- apiGroups: ["acme.cert-manager.io"]
+  resources:
+  - "orders"
+  - "orders/status"
+  - "challenges"
+  - "challenges/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+  - "delete"
+
+# ============================================================================
+# 🗄️ Storage Resources
+# ============================================================================
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - "storageclasses"
+  - "volumeattachments"
+  - "volumeattachments/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# ============================================================================
+# 🐳 Container Registry (CRD)
+# ============================================================================
+- apiGroups: ["containerregistry.azure.com"]
+  resources:
+  - "*"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+---
+# ============================================================================
+# 🔑 Restricted Role - Read-Only Access
+# ============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cdss-readonly-role
+  namespace: cdss
+  labels:
+    app: cdss
+    component: rbac
+    environment: production
+    tier: monitoring
+  annotations:
+    description: "Read-only role for monitoring and auditing"
+rules:
+# Core API - Read only
+- apiGroups: [""]
+  resources:
+  - "pods"
+  - "pods/log"
+  - "pods/status"
+  - "services"
+  - "services/status"
+  - "configmaps"
+  - "secrets"
+  - "persistentvolumeclaims"
+  - "persistentvolumeclaims/status"
+  - "endpoints"
+  - "events"
+  - "namespaces"
+  - "namespaces/status"
+  - "resourcequotas"
+  - "resourcequotas/status"
+  - "limitranges"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Apps - Read only
+- apiGroups: ["apps"]
+  resources:
+  - "deployments"
+  - "deployments/status"
+  - "deployments/scale"
+  - "statefulsets"
+  - "statefulsets/status"
+  - "statefulsets/scale"
+  - "daemonsets"
+  - "daemonsets/status"
+  - "replicasets"
+  - "replicasets/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Autoscaling - Read only
+- apiGroups: ["autoscaling"]
+  resources:
+  - "horizontalpodautoscalers"
+  - "horizontalpodautoscalers/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Batch - Read only
+- apiGroups: ["batch"]
+  resources:
+  - "jobs"
+  - "jobs/status"
+  - "cronjobs"
+  - "cronjobs/status"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Networking - Read only
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - "ingresses"
+  - "ingresses/status"
+  - "networkpolicies"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Monitoring - Read only
+- apiGroups: ["monitoring.coreos.com"]
+  resources:
+  - "servicemonitors"
+  - "podmonitors"
+  - "prometheusrules"
+  - "alertmanagerconfigs"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Service Mesh - Read only
+- apiGroups: ["networking.istio.io"]
+  resources:
+  - "virtualservices"
+  - "destinationrules"
+  - "gateways"
+  - "serviceentries"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Cert Manager - Read only
+- apiGroups: ["cert-manager.io"]
+  resources:
+  - "certificates"
+  - "issuers"
+  - "clusterissuers"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+---
+# ============================================================================
+# 🔑 CI/CD Role - Limited Write Access
+# ============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cdss-cicd-role
+  namespace: cdss
+  labels:
+    app: cdss
+    component: rbac
+    environment: production
+    tier: cicd
+  annotations:
+    description: "CI/CD role for automated deployments"
+rules:
+# Core API - Limited Write
+- apiGroups: [""]
+  resources:
+  - "configmaps"
+  - "secrets"
+  - "pods"
+  - "pods/log"
+  - "events"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+
+# Apps - Limited Write
+- apiGroups: ["apps"]
+  resources:
+  - "deployments"
+  - "deployments/status"
+  - "deployments/scale"
+  - "statefulsets"
+  - "statefulsets/status"
+  - "statefulsets/scale"
+  - "daemonsets"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "update"
+  - "patch"
+
+# Batch - Limited Write
+- apiGroups: ["batch"]
+  resources:
+  - "jobs"
+  - "cronjobs"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "delete"
+
+# Autoscaling - Limited Write
+- apiGroups: ["autoscaling"]
+  resources:
+  - "horizontalpodautoscalers"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "update"
+  - "patch"
+
+# Networking - Limited Write
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - "ingresses"
+  - "networkpolicies"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+  - "create"
+  - "update"
+  - "patch"
+
+---
+# ============================================================================
+# 🔑 Monitoring Role - Metrics Access
+# ============================================================================
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cdss-monitoring-role
+  namespace: cdss
+  labels:
+    app: cdss
+    component: rbac
+    environment: production
+    tier: monitoring
+  annotations:
+    description: "Role for Prometheus/Grafana monitoring"
+rules:
+# Core API - Metrics Access
+- apiGroups: [""]
+  resources:
+  - "pods"
+  - "pods/metrics"
+  - "services"
+  - "services/metrics"
+  - "endpoints"
+  - "endpoints/metrics"
+  - "namespaces"
+  - "nodes"
+  - "nodes/metrics"
+  - "nodes/stats"
+  - "nodes/proxy"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Apps - Metrics Access
+- apiGroups: ["apps"]
+  resources:
+  - "deployments"
+  - "statefulsets"
+  - "daemonsets"
+  - "replicasets"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Autoscaling - Metrics Access
+- apiGroups: ["autoscaling"]
+  resources:
+  - "horizontalpodautoscalers"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Batch - Metrics Access
+- apiGroups: ["batch"]
+  resources:
+  - "jobs"
+  - "cronjobs"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Networking - Metrics Access
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - "ingresses"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"
+
+# Monitoring - Full Access
+- apiGroups: ["monitoring.coreos.com"]
+  resources:
+  - "*"
+  verbs:
+  - "get"
+  - "list"
+  - "watch"

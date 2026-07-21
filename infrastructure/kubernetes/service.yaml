@@ -1,0 +1,117 @@
+# infrastructure/kubernetes/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdss-api-service
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    environment: production
+  annotations:
+    description: "CDSS API Service - Production"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: cdss
+    component: api
+  ports:
+  - name: http-api
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+---
+# Headless Service for stateful applications
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdss-api-headless
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    environment: production
+spec:
+  clusterIP: None
+  selector:
+    app: cdss
+    component: api
+  ports:
+  - name: http-api
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: cdss
+  labels:
+    app: cdss
+    component: redis
+    environment: production
+spec:
+  selector:
+    app: cdss
+    component: redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+  type: ClusterIP
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    environment: production
+spec:
+  selector:
+    app: cdss
+    component: postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+  type: ClusterIP
+---
+# MLflow Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow-service
+  namespace: cdss
+  labels:
+    app: cdss
+    component: mlflow
+    environment: production
+spec:
+  selector:
+    app: cdss
+    component: mlflow
+  ports:
+  - name: mlflow
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP

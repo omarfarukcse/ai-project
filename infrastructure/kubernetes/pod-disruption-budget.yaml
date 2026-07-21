@@ -1,0 +1,32 @@
+# infrastructure/kubernetes/pod-disruption-budget.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cdss-api-pdb
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    environment: production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: cdss
+      component: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cdss-worker-pdb
+  namespace: cdss
+  labels:
+    app: cdss
+    component: worker
+    environment: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cdss
+      component: worker

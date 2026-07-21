@@ -1,0 +1,540 @@
+# infrastructure/kubernetes/statefulset.yaml
+# Stateful Services - Redis & PostgreSQL
+
+---
+# ============================================================================
+# 📊 Redis StatefulSet - Cache & Message Broker
+# ============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: cdss
+  labels:
+    app: cdss
+    component: redis
+    environment: production
+    tier: data
+  annotations:
+    description: "Redis Cache & Message Broker - Production"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9121"
+    prometheus.io/path: "/metrics"
+spec:
+  serviceName: redis-service
+  replicas: 3  # Redis cluster with 3 nodes
+  selector:
+    matchLabels:
+      app: cdss
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: cdss
+        component: redis
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 6379
+          name: redis
+          protocol: TCP
+        - containerPort: 16379
+          name: redis-cluster
+          protocol: TCP
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: REDIS_PASSWORD
+        - name: REDIS_REPLICATION_MODE
+          value: "master"
+        - name: REDIS_MASTER_HOST
+          value: "redis-0.redis-service"
+        - name: REDIS_MASTER_PORT
+          value: "6379"
+        - name: REDIS_MASTER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: REDIS_PASSWORD
+        command:
+        - sh
+        - -c
+        - |
+          if [ "${HOSTNAME##*-}" = "0" ]; then
+            redis-server --requirepass ${REDIS_PASSWORD} \
+              --appendonly yes \
+              --appendfsync everysec \
+              --maxmemory 2gb \
+              --maxmemory-policy allkeys-lru \
+              --save 900 1 \
+              --save 300 10 \
+              --save 60 10000 \
+              --tcp-keepalive 300 \
+              --timeout 0 \
+              --bind 0.0.0.0
+          else
+            redis-server --requirepass ${REDIS_PASSWORD} \
+              --slaveof ${REDIS_MASTER_HOST} ${REDIS_MASTER_PORT} \
+              --masterauth ${REDIS_MASTER_PASSWORD} \
+              --appendonly yes \
+              --appendfsync everysec \
+              --maxmemory 2gb \
+              --maxmemory-policy allkeys-lru \
+              --tcp-keepalive 300 \
+              --timeout 0 \
+              --bind 0.0.0.0
+          fi
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli -a ${REDIS_PASSWORD} ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli -a ${REDIS_PASSWORD} ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      # Redis Exporter for Prometheus
+      - name: redis-exporter
+        image: oliver006/redis_exporter:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9121
+          name: metrics
+          protocol: TCP
+        env:
+        - name: REDIS_ADDR
+          value: "redis://localhost:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: REDIS_PASSWORD
+        - name: REDIS_ALIAS
+          value: "redis-cluster"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-data-pvc
+      terminationGracePeriodSeconds: 60
+      nodeSelector:
+        node-type: database
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - cdss
+              - key: component
+                operator: In
+                values:
+                - redis
+            topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "node-role.kubernetes.io/database"
+        operator: "Exists"
+        effect: "NoSchedule"
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+      namespace: cdss
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 50Gi
+
+---
+# ============================================================================
+# 🗄️ PostgreSQL StatefulSet - Primary Database
+# ============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    environment: production
+    tier: data
+  annotations:
+    description: "PostgreSQL Database - Production"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+    prometheus.io/path: "/metrics"
+spec:
+  serviceName: postgres-service
+  replicas: 1  # Primary database with read replicas
+  selector:
+    matchLabels:
+      app: cdss
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: cdss
+        component: postgres
+        environment: production
+        role: primary
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9187"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+          protocol: TCP
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_USERNAME
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_PASSWORD
+        - name: POSTGRES_INITDB_ARGS
+          value: "--data-checksums"
+        - name: PGDATA
+          value: "/var/lib/postgresql/data/pgdata"
+        - name: POSTGRES_EXTENSIONS
+          value: "pg_stat_statements,pgcrypto,pg_trgm"
+        command:
+        - sh
+        - -c
+        - |
+          # Configure PostgreSQL
+          echo "shared_buffers = 256MB" >> /var/lib/postgresql/data/postgresql.conf
+          echo "effective_cache_size = 768MB" >> /var/lib/postgresql/data/postgresql.conf
+          echo "work_mem = 16MB" >> /var/lib/postgresql/data/postgresql.conf
+          echo "maintenance_work_mem = 64MB" >> /var/lib/postgresql/data/postgresql.conf
+          echo "max_connections = 200" >> /var/lib/postgresql/data/postgresql.conf
+          echo "log_min_duration_statement = 1000" >> /var/lib/postgresql/data/postgresql.conf
+          echo "log_statement = 'ddl'" >> /var/lib/postgresql/data/postgresql.conf
+          echo "log_checkpoints = on" >> /var/lib/postgresql/data/postgresql.conf
+          echo "log_lock_waits = on" >> /var/lib/postgresql/data/postgresql.conf
+          echo "log_temp_files = 1024" >> /var/lib/postgresql/data/postgresql.conf
+          echo "shared_preload_libraries = 'pg_stat_statements'" >> /var/lib/postgresql/data/postgresql.conf
+          # Start PostgreSQL
+          /usr/local/bin/docker-entrypoint.sh postgres
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "4000m"
+            memory: "8Gi"
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-backup
+          mountPath: /backup
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - FOWNER
+            - FSETID
+            - KILL
+            - SETGID
+            - SETUID
+            - NET_BIND_SERVICE
+      # PostgreSQL Exporter for Prometheus
+      - name: postgres-exporter
+        image: prometheuscommunity/postgres-exporter:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9187
+          name: metrics
+          protocol: TCP
+        env:
+        - name: DATA_SOURCE_NAME
+          value: "postgresql://$(DB_USERNAME):$(DB_PASSWORD)@localhost:5432/$(DB_NAME)?sslmode=disable"
+        - name: PG_EXPORTER_EXTEND_QUERY_PATH
+          value: "/etc/postgres-exporter/queries.yaml"
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+      # Backup Sidecar
+      - name: backup-agent
+        image: postgres:15-alpine
+        command:
+        - sh
+        - -c
+        - |
+          while true; do
+            pg_dump -U ${POSTGRES_USER} -h localhost -d ${POSTGRES_DB} > /backup/backup-$(date +%Y%m%d-%H%M%S).sql
+            # Keep only last 7 days of backups
+            find /backup -name "*.sql" -mtime +7 -delete
+            sleep 86400  # Daily backup
+          done
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_USERNAME
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: DB_NAME
+        volumeMounts:
+        - name: postgres-backup
+          mountPath: /backup
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-data-pvc
+      - name: postgres-backup
+        persistentVolumeClaim:
+          claimName: postgres-backup-pvc
+      terminationGracePeriodSeconds: 120
+      nodeSelector:
+        node-type: database
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - cdss
+                - key: component
+                  operator: In
+                  values:
+                  - postgres
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "node-role.kubernetes.io/database"
+        operator: "Exists"
+        effect: "NoSchedule"
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+      namespace: cdss
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 200Gi
+  - metadata:
+      name: postgres-backup
+      namespace: cdss
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 50Gi
+---
+# ============================================================================
+# 🐘 PostgreSQL Read Replica (Optional)
+# ============================================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-replica
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    role: replica
+    environment: production
+    tier: data
+spec:
+  serviceName: postgres-replica-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cdss
+      component: postgres
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: cdss
+        component: postgres
+        role: replica
+        environment: production
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+      - name: postgres-replica
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+          protocol: TCP
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_USERNAME
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+          key: DB_PASSWORD
+        - name: POSTGRES_MASTER_HOST
+          value: "postgres-0.postgres-service.cdss.svc.cluster.local"
+        - name: POSTGRES_MASTER_PORT
+          value: "5432"
+        command:
+        - sh
+        - -c
+        - |
+          # Configure replication
+          echo "hot_standby = on" >> /var/lib/postgresql/data/postgresql.conf
+          echo "primary_conninfo = 'host=${POSTGRES_MASTER_HOST} port=${POSTGRES_MASTER_PORT} user=${POSTGRES_USER} password=${POSTGRES_PASSWORD}'" >> /var/lib/postgresql/data/postgresql.conf
+          echo "recovery_target_timeline = 'latest'" >> /var/lib/postgresql/data/postgresql.conf
+          # Start PostgreSQL
+          /usr/local/bin/docker-entrypoint.sh postgres
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        volumeMounts:
+        - name: postgres-replica-data
+          mountPath: /var/lib/postgresql/data
+      volumes:
+      - name: postgres-replica-data
+        persistentVolumeClaim:
+          claimName: postgres-replica-pvc
+      nodeSelector:
+        node-type: database
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-replica-data
+      namespace: cdss
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: gp3
+      resources:
+        requests:
+          storage: 200Gi

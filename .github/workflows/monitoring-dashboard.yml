@@ -1,0 +1,26 @@
+# .github/workflows/monitoring-dashboard.yml
+# Optional: Deploy Grafana dashboards
+
+name: Deploy Monitoring Dashboards
+
+on:
+  push:
+    paths:
+      - 'observability/grafana/dashboards/**'
+    branches:
+      - main
+
+jobs:
+  deploy-dashboards:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy to Grafana
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d @observability/grafana/dashboards/cdss-dashboard.json \
+            https://${{ secrets.GRAFANA_URL }}/api/dashboards/db

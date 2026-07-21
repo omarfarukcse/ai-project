@@ -1,0 +1,113 @@
+{
+  "title": "Canary Deployment Dashboard",
+  "uid": "canary-dashboard",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Canary Status",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "canary_status",
+          "legendFormat": "Status"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+    },
+    {
+      "title": "Traffic Split",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum(rate(cdss_requests_total{track=\"production\"}[5m]))",
+          "legendFormat": "Production"
+        },
+        {
+          "expr": "sum(rate(cdss_requests_total{track=\"canary\"}[5m]))",
+          "legendFormat": "Canary"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+    },
+    {
+      "title": "Canary Error Rate",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(cdss_requests_total{track=\"canary\",status=~\"5..\"}[5m])) / sum(rate(cdss_requests_total{track=\"canary\"}[5m]))",
+          "legendFormat": "Error Rate"
+        },
+        {
+          "expr": "0.05",
+          "legendFormat": "Threshold 5%"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4}
+    },
+    {
+      "title": "Canary Latency",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cdss_request_latency_seconds_bucket{track=\"canary\"}[5m])) by (le))",
+          "legendFormat": "P95 Latency"
+        },
+        {
+          "expr": "2",
+          "legendFormat": "Threshold 2s"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4}
+    },
+    {
+      "title": "Model Performance Comparison",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "cdss_model_accuracy{track=\"canary\"}",
+          "legendFormat": "Canary"
+        },
+        {
+          "expr": "cdss_model_accuracy{track=\"production\"}",
+          "legendFormat": "Production"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 12}
+    },
+    {
+      "title": "Canary Throughput",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(cdss_requests_total{track=\"canary\"}[5m])",
+          "legendFormat": "Throughput"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 12}
+    },
+    {
+      "title": "Rollback Control",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "canary_rollback_status",
+          "legendFormat": "Rollback Status"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 20}
+    },
+    {
+      "title": "Canary Logs",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{job=\"cdss-canary\"}",
+          "legendFormat": "Logs"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 4, "y": 20}
+    }
+  ],
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "15s"
+}

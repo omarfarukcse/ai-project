@@ -1,0 +1,108 @@
+# infrastructure/kubernetes/cronjob.yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cdss-retrain-model
+  namespace: cdss
+  labels:
+    app: cdss
+    component: cronjob
+    environment: production
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          serviceAccountName: cdss-cronjob-sa
+          containers:
+          - name: retrain
+            image: cdss-healthcare-api:latest
+            imagePullPolicy: Always
+            command:
+            - python
+            - scripts/train.py
+            - --dataset
+            - diabetes
+            - --experiment
+            - production_training
+            env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: cdss-config
+                  key: DB_HOST
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: cdss-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cdss-secrets
+                  key: DB_PASSWORD
+            resources:
+              requests:
+                cpu: "1000m"
+                memory: "2Gi"
+              limits:
+                cpu: "4000m"
+                memory: "8Gi"
+            volumeMounts:
+            - name: models
+              mountPath: /app/models
+            - name: data
+              mountPath: /app/data
+          volumes:
+          - name: models
+            persistentVolumeClaim:
+              claimName: cdss-models-pvc
+          - name: data
+            persistentVolumeClaim:
+              claimName: cdss-data-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cdss-monitoring-check
+  namespace: cdss
+  labels:
+    app: cdss
+    component: cronjob
+    environment: production
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: cdss-cronjob-sa
+          containers:
+          - name: monitor
+            image: cdss-healthcare-api:latest
+            command:
+            - python
+            - scripts/monitor.py
+            env:
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cdss-secrets
+                  key: SLACK_WEBHOOK_URL
+            resources:
+              requests:
+                cpu: "250m"
+                memory: "512Mi"
+              limits:
+                cpu: "500m"
+                memory: "1Gi"
+          restartPolicy: OnFailure

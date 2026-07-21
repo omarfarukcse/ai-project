@@ -1,0 +1,68 @@
+# infrastructure/kubernetes/pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdss-models-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: models
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdss-data-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: data
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdss-logs-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: logs
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdss-features-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: feature-store
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 200Gi

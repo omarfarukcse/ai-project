@@ -1,0 +1,100 @@
+# docker-compose.yml
+# Local Development Stack
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: cdss
+      POSTGRES_USER: cdss
+      POSTGRES_PASSWORD: cdss_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cdss"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.3.0
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://cdss:cdss_password@postgres:5432/cdss --default-artifact-root ./mlflow-artifacts
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - mlflow-data:/mlflow-artifacts
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    command: celery -A src.async_tasks.celery_worker worker --loglevel=info --concurrency=2
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./outputs:/app/outputs
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+
+volumes:
+  redis-data:
+  postgres-data:
+  mlflow-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:

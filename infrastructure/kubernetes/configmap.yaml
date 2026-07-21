@@ -1,0 +1,78 @@
+# infrastructure/kubernetes/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdss-config
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    environment: production
+data:
+  # Application Configuration
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  API_PORT: "8000"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_CACHE_TTL: "3600"
+  
+  # Database Configuration
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "cdss"
+  
+  # MLflow Configuration
+  MLFLOW_TRACKING_URI: "http://mlflow-service:5000"
+  
+  # Model Configuration
+  MODEL_NAME: "cdss_model"
+  MODEL_STAGE: "production"
+  
+  # Rate Limiting
+  RATE_LIMIT: "100"
+  RATE_LIMIT_PERIOD: "minute"
+  
+  # Feature Store
+  FEATURE_STORE_HOST: "redis-feature-service"
+  FEATURE_STORE_PORT: "6379"
+  FEATURE_STORE_DB: "1"
+  
+  # Monitoring
+  PROMETHEUS_ENABLED: "true"
+  METRICS_PATH: "/metrics"
+  
+  # CORS
+  CORS_ORIGINS: "https://api.cdss-healthcare.com,https://dashboard.cdss-healthcare.com"
+  
+  # Feature Flags
+  ENABLE_EXPLANATIONS: "true"
+  ENABLE_BATCH_PREDICTIONS: "true"
+  ENABLE_ASYNC_TASKS: "true"
+  ENABLE_DRIFT_DETECTION: "true"
+  
+  # Timeouts
+  READ_TIMEOUT: "30"
+  WRITE_TIMEOUT: "30"
+  IDLE_TIMEOUT: "120"
+  
+  # Session Configuration
+  SESSION_TIMEOUT: "3600"
+  MAX_SESSIONS: "1000"
+  
+  # Cache Configuration
+  CACHE_TTL: "300"
+  CACHE_MAX_SIZE: "10000"
+  
+  # Batch Processing
+  BATCH_SIZE: "100"
+  MAX_BATCH_SIZE: "1000"
+  BATCH_TIMEOUT: "5000"
+  
+  # Circuit Breaker
+  CIRCUIT_BREAKER_THRESHOLD: "5"
+  CIRCUIT_BREAKER_TIMEOUT: "30"
+  CIRCUIT_BREAKER_HALF_OPEN: "3"

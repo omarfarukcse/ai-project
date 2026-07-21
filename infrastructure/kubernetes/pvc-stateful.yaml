@@ -1,0 +1,81 @@
+# infrastructure/kubernetes/pvc-stateful.yaml
+# Additional PVCs for Stateful Services
+
+---
+# Redis Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: redis
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 50Gi
+  # Optional: For production use specific storage class
+  # storageClassName: fast-ssd
+
+---
+# PostgreSQL Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+# PostgreSQL Backup PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# PostgreSQL Replica PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-replica-pvc
+  namespace: cdss
+  labels:
+    app: cdss
+    component: postgres
+    role: replica
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 200Gi

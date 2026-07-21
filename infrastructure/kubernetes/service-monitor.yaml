@@ -1,0 +1,51 @@
+# infrastructure/kubernetes/service-monitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cdss-api-monitor
+  namespace: cdss
+  labels:
+    app: cdss
+    component: monitoring
+    environment: production
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: cdss
+      component: api
+  endpoints:
+  - port: http-api
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'cdss_.*'
+      action: keep
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cdss-redis-monitor
+  namespace: cdss
+  labels:
+    app: cdss
+    component: monitoring
+    environment: production
+spec:
+  selector:
+    matchLabels:
+      app: cdss
+      component: redis
+  endpoints:
+  - port: redis
+    interval: 30s
+    scrapeTimeout: 15s

@@ -1,0 +1,348 @@
+# docker-compose.monitoring.yml
+# Complete Monitoring Stack for CDSS Healthcare System
+
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 📊 Prometheus - Metrics Collection
+  # ============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cdss-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=prometheus"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📈 Grafana - Dashboards and Visualization
+  # ============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cdss-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+      - GF_SERVER_ROOT_URL=http://grafana:3000
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_BASIC_ENABLED=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/home.json
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards/cdss-dashboard.json:/etc/grafana/dashboards/cdss-dashboard.json:ro
+      - ./observability/grafana/dashboards/model-dashboard.json:/etc/grafana/dashboards/model-dashboard.json:ro
+      - ./observability/grafana/dashboards/system-dashboard.json:/etc/grafana/dashboards/system-dashboard.json:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=grafana"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📝 Loki - Log Aggregation
+  # ============================================================================
+  loki:
+    image: grafana/loki:latest
+    container_name: cdss-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki-data:/loki
+    command:
+      - '-config.file=/etc/loki/loki-config.yaml'
+      - '-target=all'
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=loki"
+      - "com.cdss.type=logging"
+
+  # ============================================================================
+  # 📊 Promtail - Log Scraping
+  # ============================================================================
+  promtail:
+    image: grafana/promtail:latest
+    container_name: cdss-promtail
+    restart: unless-stopped
+    volumes:
+      - ./observability/promtail/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - logs:/app/logs:ro
+    command:
+      - '-config.file=/etc/promtail/config.yaml'
+      - '-target=all'
+    networks:
+      - monitoring-network
+    depends_on:
+      - loki
+    labels:
+      - "com.cdss.service=promtail"
+      - "com.cdss.type=logging"
+
+  # ============================================================================
+  # 🔔 AlertManager - Alert Handling
+  # ============================================================================
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: cdss-alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/config.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.listen-address=0.0.0.0:9093'
+    networks:
+      - monitoring-network
+    depends_on:
+      - prometheus
+    labels:
+      - "com.cdss.service=alertmanager"
+      - "com.cdss.type=alerting"
+
+  # ============================================================================
+  # 🔍 Tempo - Distributed Tracing
+  # ============================================================================
+  tempo:
+    image: grafana/tempo:latest
+    container_name: cdss-tempo
+    restart: unless-stopped
+    ports:
+      - "3200:3200"   # Tempo
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./observability/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - tempo-data:/var/tempo
+    command:
+      - '-config.file=/etc/tempo/tempo-config.yaml'
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=tempo"
+      - "com.cdss.type=tracing"
+
+  # ============================================================================
+  # 📊 Node Exporter - System Metrics
+  # ============================================================================
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: cdss-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)'
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=node-exporter"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📊 cAdvisor - Container Metrics
+  # ============================================================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cdss-cadvisor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=cadvisor"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📊 Blackbox Exporter - Endpoint Monitoring
+  # ============================================================================
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: cdss-blackbox-exporter
+    restart: unless-stopped
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./observability/blackbox/config.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - '--config.file=/etc/blackbox_exporter/config.yml'
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=blackbox-exporter"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📊 PostgreSQL Exporter - Database Metrics
+  # ============================================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: cdss-postgres-exporter
+    restart: unless-stopped
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://cdss:${DB_PASSWORD:-cdss_password}@postgres:5432/cdss?sslmode=disable
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=postgres-exporter"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📊 Redis Exporter - Redis Metrics
+  # ============================================================================
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: cdss-redis-exporter
+    restart: unless-stopped
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=redis-exporter"
+      - "com.cdss.type=monitoring"
+
+  # ============================================================================
+  # 📊 Elasticsearch Exporter (Optional)
+  # ============================================================================
+  elasticsearch-exporter:
+    image: quay.io/prometheuscommunity/elasticsearch-exporter:latest
+    container_name: cdss-elasticsearch-exporter
+    restart: unless-stopped
+    ports:
+      - "9114:9114"
+    environment:
+      - ES_URI=http://elasticsearch:9200
+    networks:
+      - monitoring-network
+    labels:
+      - "com.cdss.service=elasticsearch-exporter"
+      - "com.cdss.type=monitoring"
+    profiles:
+      - optional
+
+# ============================================================================
+# 📊 Networks
+# ============================================================================
+networks:
+  monitoring-network:
+    name: cdss-monitoring-network
+    driver: bridge
+    external: true
+    labels:
+      - "com.cdss.network=monitoring"
+
+# ============================================================================
+# 📊 Volumes
+# ============================================================================
+volumes:
+  prometheus-data:
+    name: cdss-prometheus-data
+    labels:
+      - "com.cdss.volume=prometheus-data"
+  grafana-data:
+    name: cdss-grafana-data
+    labels:
+      - "com.cdss.volume=grafana-data"
+  loki-data:
+    name: cdss-loki-data
+    labels:
+      - "com.cdss.volume=loki-data"
+  alertmanager-data:
+    name: cdss-alertmanager-data
+    labels:
+      - "com.cdss.volume=alertmanager-data"
+  tempo-data:
+    name: cdss-tempo-data
+    labels:
+      - "com.cdss.volume=tempo-data"
+  logs:
+    name: cdss-logs
+    external: true
+    labels:
+      - "com.cdss.volume=logs"
+
+# ============================================================================
+# 📊 Usage Commands
+# ============================================================================
+# Start monitoring stack:
+#   docker-compose -f docker-compose.monitoring.yml up -d
+#
+# Stop monitoring stack:
+#   docker-compose -f docker-compose.monitoring.yml down
+#
+# View logs:
+#   docker-compose -f docker-compose.monitoring.yml logs -f
+#
+# Check status:
+#   docker-compose -f docker-compose.monitoring.yml ps
+#
+# Scale services:
+#   docker-compose -f docker-compose.monitoring.yml up -d --scale grafana=1
+#
+# Access endpoints:
+#   Prometheus: http://localhost:9090
+#   Grafana: http://localhost:3000 (admin/admin)
+#   Loki: http://localhost:3100
+#   AlertManager: http://localhost:9093
+#   Tempo: http://localhost:3200

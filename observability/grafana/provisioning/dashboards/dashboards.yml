@@ -1,0 +1,15 @@
+# observability/grafana/provisioning/dashboards/dashboards.yml
+apiVersion: 1
+
+providers:
+  - name: 'CDSS Dashboards'
+    orgId: 1
+    folder: 'CDSS'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: true
+      

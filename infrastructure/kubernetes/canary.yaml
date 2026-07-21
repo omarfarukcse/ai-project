@@ -1,0 +1,514 @@
+# infrastructure/kubernetes/canary.yaml
+# Canary Deployment Strategy for Zero-Risk Model Rollouts
+
+---
+# ============================================================================
+# 🦜 Canary Deployment - Progressive Rollout with Traffic Splitting
+# ============================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdss-api-canary
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    track: canary
+    environment: production
+    version: v3.0.0
+  annotations:
+    description: "CDSS API Canary Deployment - 5% Traffic"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+    rollback-version: "v2.9.0"  # Track rollback target
+spec:
+  replicas: 1  # Small canary fleet
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: cdss
+      component: api
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: cdss
+        component: api
+        track: canary
+        version: v3.0.0
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+        checksum/config: "{{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}"
+        checksum/secret: "{{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}"
+    spec:
+      serviceAccountName: cdss-api-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: api
+        image: cdss-healthcare-api:canary  # Canary image tag
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "DEBUG"  # More verbose logging for canary
+        - name: IS_CANARY
+          value: "true"
+        - name: CANARY_VERSION
+          value: "v3.0.0"
+        - name: ROLLBACK_TRIGGERED
+          value: "false"
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: REDIS_HOST
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: DB_HOST
+        - name: MLFLOW_TRACKING_URI
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: MLFLOW_TRACKING_URI
+        # Secrets
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_PASSWORD
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: JWT_SECRET_KEY
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: REDIS_PASSWORD
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 2
+        volumeMounts:
+        - name: models
+          mountPath: /app/models
+        - name: data
+          mountPath: /app/data
+        - name: logs
+          mountPath: /app/logs
+        - name: features
+          mountPath: /app/data/feature_store
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: models
+        persistentVolumeClaim:
+          claimName: cdss-models-pvc
+      - name: data
+        persistentVolumeClaim:
+          claimName: cdss-data-pvc
+      - name: logs
+        persistentVolumeClaim:
+          claimName: cdss-logs-pvc
+      - name: features
+        persistentVolumeClaim:
+          claimName: cdss-features-pvc
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        node-type: application
+      tolerations:
+      - key: "node-role.kubernetes.io/worker"
+        operator: "Exists"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - cdss
+              - key: track
+                operator: In
+                values:
+                - production
+            topologyKey: kubernetes.io/hostname
+      imagePullSecrets:
+      - name: regcred
+      priorityClassName: production-canary
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+
+---
+# ============================================================================
+# 🌐 Canary Service - With Traffic Splitting
+# ============================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdss-api-canary-service
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    track: canary
+    environment: production
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+    # Service Mesh annotations for traffic splitting
+    # Istio
+    "istio.io/description": "Canary Service for Traffic Splitting"
+spec:
+  selector:
+    app: cdss
+    component: api
+    track: canary
+  ports:
+  - name: http-api
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# ============================================================================
+# 📊 Canary Metrics Service
+# ============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cdss-canary-monitor
+  namespace: cdss
+  labels:
+    app: cdss
+    component: monitoring
+    track: canary
+    environment: production
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: cdss
+      component: api
+      track: canary
+  endpoints:
+  - port: http-api
+    path: /metrics
+    interval: 10s  # More frequent scraping for canary
+    scrapeTimeout: 5s
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'cdss_.*'
+      action: keep
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+    - sourceLabels: [__meta_kubernetes_pod_label_version]
+      targetLabel: version
+
+---
+# ============================================================================
+# 🦜 Canary Prometheus Rules
+# ============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cdss-canary-rules
+  namespace: cdss
+  labels:
+    app: cdss
+    component: monitoring
+    track: canary
+    environment: production
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: cdss-canary
+    interval: 30s
+    rules:
+    # Error Rate Alert
+    - alert: CanaryHighErrorRate
+      expr: |
+        sum(rate(cdss_requests_total{track="canary",status=~"5.."}[5m])) 
+        / 
+        sum(rate(cdss_requests_total{track="canary"}[5m])) 
+        > 0.05
+      for: 2m
+      labels:
+        severity: critical
+        team: ml-platform
+        type: canary
+      annotations:
+        summary: "Canary deployment high error rate"
+        description: "Canary error rate is {{ $value | humanizePercentage }} for the last 2 minutes"
+        action: "Immediate rollback recommended"
+        dashboard: "https://grafana.cdss-healthcare.com/d/canary-dashboard"
+    
+    # Latency Alert
+    - alert: CanaryHighLatency
+      expr: |
+        histogram_quantile(0.95, 
+          sum(rate(cdss_request_latency_seconds_bucket{track="canary"}[5m])) by (le)
+        ) > 2
+      for: 3m
+      labels:
+        severity: warning
+        team: ml-platform
+        type: canary
+      annotations:
+        summary: "Canary deployment high latency"
+        description: "P95 latency is {{ $value }}s for the last 3 minutes"
+        action: "Monitor canary performance"
+    
+    # Performance Degradation Alert
+    - alert: CanaryPerformanceDegradation
+      expr: |
+        (
+          avg(cdss_model_accuracy{track="canary"}) 
+          - 
+          avg(cdss_model_accuracy{track="production"})
+        ) < -0.05
+      for: 5m
+      labels:
+        severity: critical
+        team: ml-platform
+        type: canary
+      annotations:
+        summary: "Canary model performance degraded"
+        description: "Canary accuracy dropped {{ $value | humanizePercentage }} below production"
+        action: "Immediate investigation required"
+    
+    # Throughput Alert
+    - alert: CanaryLowThroughput
+      expr: |
+        rate(cdss_requests_total{track="canary"}[5m]) < 5
+      for: 5m
+      labels:
+        severity: warning
+        team: ml-platform
+        type: canary
+      annotations:
+        summary: "Canary deployment low throughput"
+        description: "Canary is receiving less than 5 requests per second"
+        action: "Check traffic routing configuration"
+
+---
+# ============================================================================
+# 🎯 Canary Horizontal Pod Autoscaler
+# ============================================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cdss-canary-hpa
+  namespace: cdss
+  labels:
+    app: cdss
+    component: api
+    track: canary
+    environment: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cdss-api-canary
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# ============================================================================
+# 🔄 Canary Rollback Controller
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: canary-rollback-config
+  namespace: cdss
+  labels:
+    app: cdss
+    component: canary-controller
+    environment: production
+data:
+  rollback-policy.yaml: |
+    rollback:
+      thresholds:
+        error_rate: 0.05      # 5% error rate triggers rollback
+        latency_p95: 2.0      # 2 seconds P95 triggers rollback
+        performance_drop: 0.05 # 5% performance drop triggers rollback
+      check_interval: 30       # Check every 30 seconds
+      evaluation_window: 300   # Evaluate over 5 minutes
+      cooldown: 300           # 5 minutes cooldown after rollback
+      auto_rollback: true
+      manual_override: true
+      notify_slack: true
+      notify_email: true
+
+---
+# ============================================================================
+# 🦜 Canary Status Service
+# ============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: canary-status
+  namespace: cdss
+  labels:
+    app: cdss
+    component: canary-status
+    environment: production
+data:
+  status.json: |
+    {
+      "version": "v3.0.0",
+      "status": "active",
+      "deployment_time": "2024-01-15T10:00:00Z",
+      "traffic_percentage": 5,
+      "metrics": {
+        "error_rate": 0.01,
+        "latency_p50": 0.15,
+        "latency_p95": 0.45,
+        "throughput": 50,
+        "success_rate": 99.0
+      },
+      "rollback_ready": false,
+      "rollback_reason": null,
+      "duration": "1h 30m"
+    }
+
+---
+# ============================================================================
+# 🚨 Canary AlertManager Configuration
+# ============================================================================
+apiVersion: monitoring.coreos.com/v1
+kind: AlertmanagerConfig
+metadata:
+  name: cdss-canary-alerts
+  namespace: cdss
+  labels:
+    app: cdss
+    component: alertmanager
+    track: canary
+    environment: production
+spec:
+  route:
+    groupBy: ['alertname', 'cluster']
+    groupWait: 30s
+    groupInterval: 1m
+    repeatInterval: 5m
+    receiver: 'canary-slack'
+    routes:
+    - match:
+        severity: critical
+      receiver: 'canary-pagerduty'
+      continue: true
+    - match:
+        severity: warning
+      receiver: 'canary-slack'
+      continue: true
+  receivers:
+  - name: 'canary-slack'
+    slackConfigs:
+    - channel: '#cdss-canary'
+      apiURL: '${SLACK_WEBHOOK_URL}'
+      title: '🦜 Canary Alert: {{ .GroupLabels.alertname }}'
+      text: |
+        *Environment:* production
+        *Version:* v3.0.0
+        *Severity:* {{ .CommonLabels.severity }}
+        *Description:* {{ .CommonAnnotations.description }}
+        *Action:* {{ .CommonAnnotations.action }}
+        *Dashboard:* {{ .CommonAnnotations.dashboard }}
+      fields:
+      - title: Error Rate
+        value: '{{ .CommonLabels.error_rate }}'
+        short: true
+      - title: Latency
+        value: '{{ .CommonLabels.latency }}'
+        short: true
+      - title: Throughput
+        value: '{{ .CommonLabels.throughput }}'
+        short: true
+      
+  - name: 'canary-pagerduty'
+    pagerdutyConfigs:
+    - serviceKey: '${PAGERDUTY_SERVICE_KEY}'
+      routingKey: '${PAGERDUTY_ROUTING_KEY}'
+      sendResolved: true
+      severity: '{{ .CommonLabels.severity }}'
+      description: 'Canary Alert: {{ .GroupLabels.alertname }}'
+      details:
+        version: 'v3.0.0'
+        environment: 'production'
+        action: '{{ .CommonAnnotations.action }}'
+        dashboard: '{{ .CommonAnnotations.dashboard }}'

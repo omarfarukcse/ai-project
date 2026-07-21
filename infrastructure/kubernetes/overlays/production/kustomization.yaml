@@ -1,0 +1,43 @@
+# infrastructure/kubernetes/overlays/production/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cdss
+
+resources:
+  - ../../namespace.yaml
+  - ../../configmap.yaml
+  - ../../secrets.yaml
+  - ../../pvc.yaml
+  - ../../deployment.yaml
+  - ../../service.yaml
+  - ../../hpa.yaml
+  - ../../ingress.yaml
+  - ../../network-policy.yaml
+  - ../../pod-disruption-budget.yaml
+  - ../../service-monitor.yaml
+  - ../../cronjob.yaml
+  - ../../serviceaccount.yaml
+  - ../../role.yaml
+  - ../../rolebinding.yaml
+
+patchesStrategicMerge:
+  - patches/deployment-patch.yaml
+  - patches/hpa-patch.yaml
+
+images:
+  - name: cdss-healthcare-api
+    newName: 123456789012.dkr.ecr.us-east-1.amazonaws.com/cdss-api
+    newTag: v3.0.0
+
+configMapGenerator:
+  - behavior: merge
+    files:
+      - application.properties
+    name: cdss-config
+
+secretGenerator:
+  - behavior: merge
+    envs:
+      - secrets.env
+    name: cdss-secrets

@@ -1,0 +1,88 @@
+# docker-compose.prod.yml
+# Production Stack
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    image: cdss-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - models:/app/models
+      - data:/app/data
+      - logs:/app/logs
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: cdss
+      POSTGRES_USER: cdss
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.3.0
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri postgresql://cdss:${DB_PASSWORD}@postgres:5432/cdss --default-artifact-root /mlflow-artifacts
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    volumes:
+      - mlflow-data:/mlflow-artifacts
+    restart: unless-stopped
+
+  celery-worker:
+    image: cdss-api:latest
+    command: celery -A src.async_tasks.celery_worker worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=production
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      - redis
+      - postgres
+    volumes:
+      - models:/app/models
+      - data:/app/data
+      - logs:/app/logs
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:
+  mlflow-data:
+  models:
+  data:
+  logs:

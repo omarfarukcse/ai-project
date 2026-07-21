@@ -1,0 +1,111 @@
+# infrastructure/kubernetes/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cdss-ingress
+  namespace: cdss
+  annotations:
+    # NGINX Ingress Controller
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+    
+    # Rate Limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+    nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,192.168.0.0/16"
+    
+    # Security
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN";
+      add_header X-Content-Type-Options "nosniff";
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Referrer-Policy "strict-origin-when-cross-origin";
+      add_header Content-Security-Policy "default-src 'self'";
+    
+    # Cert Manager for TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: http01
+    acme.cert-manager.io/http01-edit-in-place: "true"
+    
+    # Monitoring
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "10254"
+    
+  labels:
+    app: cdss
+    component: ingress
+    environment: production
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - api.cdss-healthcare.com
+    - dashboard.cdss-healthcare.com
+    secretName: cdss-tls-secret
+  rules:
+  - host: api.cdss-healthcare.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cdss-api-service
+            port:
+              number: 80
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: cdss-api-service
+            port:
+              number: 8000
+  - host: dashboard.cdss-healthcare.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cdss-dashboard-service
+            port:
+              number: 8501
+---
+# Alternative: Using AWS ALB Ingress Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cdss-ingress-alb
+  namespace: cdss
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/tags: "Environment=production,Team=ml-platform"
+spec:
+  tls:
+  - hosts:
+    - api.cdss-healthcare.com
+    secretName: cdss-tls-secret
+  rules:
+  - host: api.cdss-healthcare.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cdss-api-service
+            port:
+              number: 80

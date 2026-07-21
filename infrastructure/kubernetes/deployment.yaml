@@ -3,225 +3,208 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cdss-api
-  namespace: healthcare
+  namespace: cdss
   labels:
-    app: cdss-api
+    app: cdss
+    component: api
     version: v3.0.0
+    environment: production
+    tier: backend
+    team: ml-platform
+  annotations:
+    description: "CDSS API Server - Production"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+    reloader.stakater.com/auto: "true"  # Auto-restart on config change
 spec:
   replicas: 3
-  selector:
-    matchLabels:
-      app: cdss-api
   strategy:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: cdss
+      component: api
   template:
     metadata:
       labels:
-        app: cdss-api
+        app: cdss
+        component: api
         version: v3.0.0
+        environment: production
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
+        checksum/config: "{{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}"
+        checksum/secret: "{{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}"
     spec:
+      serviceAccountName: cdss-api-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
-      - name: cdss-api
-        image: cdss-healthcare:latest
+      - name: api
+        image: cdss-healthcare-api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
           name: http
+          protocol: TCP
         env:
+        # From ConfigMap
         - name: ENVIRONMENT
           valueFrom:
             configMapKeyRef:
               name: cdss-config
-              key: environment
+              key: ENVIRONMENT
         - name: LOG_LEVEL
           valueFrom:
             configMapKeyRef:
               name: cdss-config
-              key: log_level
+              key: LOG_LEVEL
         - name: REDIS_HOST
           valueFrom:
             configMapKeyRef:
               name: cdss-config
-              key: redis_host
+              key: REDIS_HOST
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: cdss-config
+              key: DB_HOST
         - name: MLFLOW_TRACKING_URI
           valueFrom:
             configMapKeyRef:
               name: cdss-config
-              key: mlflow_tracking_uri
+              key: MLFLOW_TRACKING_URI
+        # From Secrets
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: DB_PASSWORD
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: JWT_SECRET_KEY
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cdss-secrets
+              key: REDIS_PASSWORD
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "250m"
+            cpu: "500m"
+            memory: "1Gi"
           limits:
-            memory: "2Gi"
-            cpu: "1000m"
+            cpu: "2000m"
+            memory: "4Gi"
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
+            scheme: HTTP
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
+          successThreshold: 1
           failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
+            scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3
+          successThreshold: 1
           failureThreshold: 2
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 30
         volumeMounts:
-        - name: model-storage
+        - name: models
           mountPath: /app/models
-        - name: data-storage
+        - name: data
           mountPath: /app/data
-        - name: logs-storage
+        - name: logs
           mountPath: /app/logs
+        - name: features
+          mountPath: /app/data/feature_store
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
       volumes:
-      - name: model-storage
+      - name: models
         persistentVolumeClaim:
           claimName: cdss-models-pvc
-      - name: data-storage
+      - name: data
         persistentVolumeClaim:
           claimName: cdss-data-pvc
-      - name: logs-storage
+      - name: logs
         persistentVolumeClaim:
           claimName: cdss-logs-pvc
+      - name: features
+        persistentVolumeClaim:
+          claimName: cdss-features-pvc
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi
+          medium: Memory
       terminationGracePeriodSeconds: 60
+      nodeSelector:
+        node-type: application
+      tolerations:
+      - key: "node-role.kubernetes.io/worker"
+        operator: "Exists"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - cdss
+              topologyKey: kubernetes.io/hostname
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: component
+                  operator: In
+                  values:
+                  - redis
+              topologyKey: topology.kubernetes.io/zone
       imagePullSecrets:
-      - name: docker-registry-secret
----
-# infrastructure/kubernetes/service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: cdss-api-service
-  namespace: healthcare
-  labels:
-    app: cdss-api
-spec:
-  selector:
-    app: cdss-api
-  ports:
-  - name: http
-    port: 80
-    targetPort: 8000
-    protocol: TCP
-  - name: metrics
-    port: 8000
-    targetPort: 8000
-    protocol: TCP
-  type: ClusterIP
----
-# infrastructure/kubernetes/hpa.yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: cdss-api-hpa
-  namespace: healthcare
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: cdss-api
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
-  - type: Resource
-    resource:
-      name: memory
-      target:
-        type: Utilization
-        averageUtilization: 80
-  - type: Pods
-    pods:
-      metric:
-        name: requests_per_second
-      target:
-        type: AverageValue
-        averageValue: 50
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-      - type: Percent
-        value: 10
-        periodSeconds: 60
-    scaleUp:
-      stabilizationWindowSeconds: 60
-      policies:
-      - type: Percent
-        value: 100
-        periodSeconds: 30
----
-# infrastructure/kubernetes/ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: cdss-ingress
-  namespace: healthcare
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-spec:
-  ingressClassName: nginx
-  tls:
-  - hosts:
-    - api.cdss-healthcare.com
-    - dashboard.cdss-healthcare.com
-    secretName: cdss-tls-secret
-  rules:
-  - host: api.cdss-healthcare.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: cdss-api-service
-            port:
-              number: 80
-  - host: dashboard.cdss-healthcare.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: cdss-dashboard-service
-            port:
-              number: 8501
----
-# infrastructure/kubernetes/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cdss-config
-  namespace: healthcare
-data:
-  environment: "production"
-  log_level: "INFO"
-  redis_host: "redis-service.redis.svc.cluster.local"
-  mlflow_tracking_uri: "http://mlflow-service.mlflow.svc.cluster.local:5000"
-  model_version: "latest"
-  cache_ttl: "3600"
-  rate_limit: "100"
-  rate_limit_period: "minute"
+      - name: regcred
+      priorityClassName: production-critical
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always

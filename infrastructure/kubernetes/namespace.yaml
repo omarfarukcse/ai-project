@@ -1,0 +1,14 @@
+# infrastructure/kubernetes/namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cdss
+  labels:
+    name: cdss
+    environment: production
+    app: cdss-healthcare
+    team: ml-platform
+    cost-center: ai-healthcare
+  annotations:
+    description: "CDSS Healthcare Production Environment"
+    contact: "ml-platform@healthcare.com"
