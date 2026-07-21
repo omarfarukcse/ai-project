@@ -14,30 +14,37 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
-    
+
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Set up kubectl
       uses: azure/setup-kubectl@v3
-      
-    - name: Set up Kubeconfig
-      uses: azure/setup-kubectl@v3
       with:
-        kubeconfig: ${{ secrets.KUBECONFIG }}
-        
+        version: 'latest'
+
+    - name: Configure kubeconfig
+      shell: bash
+      run: |
+        mkdir -p "${HOME}/.kube"
+        echo "${KUBECONFIG_DATA}" | base64 -d > "${HOME}/.kube/config"
+        chmod 600 "${HOME}/.kube/config"
+        kubectl config current-context
+        kubectl get ns
+      env:
+        KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+
     - name: Deploy to Kubernetes
       run: |
         kubectl set image deployment/cdss-api cdss-api=${{ secrets.DOCKERHUB_USERNAME }}/cdss-api:${{ github.ref_name }} -n cdss
         kubectl rollout status deployment/cdss-api -n cdss --timeout=5m
-        
+
     - name: Verify deployment
       run: |
-        kubectl run -i --tty --rm health-check \
+        kubectl run health-check --rm -i --restart=Never -n cdss \
           --image=curlimages/curl:latest \
-          --restart=Never \
-          -- curl -s -f http://cdss-api-service:8000/health -n cdss
-          
+          -- curl -sSf http://cdss-api-service:8000/health
+
     - name: Send deployment notification
       uses: rtCamp/action-slack-notify@v2
       env:
