@@ -7,7 +7,7 @@ import os
 import json
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, List, Optional, Union
 from pydantic import BaseModel, Field, validator
 from functools import lru_cache
 import logging
@@ -285,3 +285,6 @@ def get_config(name: str = "main") -> Dict[str, Any]:
 def get(key: str, default: Any = None, config: str = "main") -> Any:
     """Convenience function to get config value"""
     return get_config_manager().get(key, default, config)
+
+
+config_manager = get_config_manager()

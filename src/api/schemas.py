@@ -90,7 +90,7 @@ class PatientData(BaseModel):
             return v
         return v
     
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_complete(cls, values):
         """Validate that at least some data is provided"""
         if all(v is None for v in values.values()):
@@ -119,7 +119,7 @@ class BatchPredictionRequest(BaseModel):
 
 class ModelPromotionRequest(BaseModel):
     """Model promotion request"""
-    version: str = Field(..., regex=r'^v\d+\.\d+\.\d+$')
+    version: str = Field(..., pattern=r'^v\d+\.\d+\.\d+$')
     canary_percentage: float = Field(0.05, ge=0, le=1)
     run_tests: bool = True
     auto_rollback: bool = True

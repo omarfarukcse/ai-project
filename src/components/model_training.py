@@ -14,17 +14,31 @@ from sklearn.ensemble import (
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
-from catboost import CatBoostClassifier
+try:
+    from xgboost import XGBClassifier
+except Exception:  # pragma: no cover
+    XGBClassifier = None
+try:
+    from lightgbm import LGBMClassifier
+except Exception:  # pragma: no cover
+    LGBMClassifier = None
+try:
+    from catboost import CatBoostClassifier
+except Exception:  # pragma: no cover
+    CatBoostClassifier = None
 from sklearn.model_selection import (
     cross_val_score, StratifiedKFold,
     GridSearchCV, RandomizedSearchCV
 )
 from sklearn.metrics import make_scorer, recall_score
-import optuna
-from optuna.pruners import MedianPruner
-from optuna.samplers import TPESampler
+try:
+    import optuna
+    from optuna.pruners import MedianPruner
+    from optuna.samplers import TPESampler
+except Exception:  # pragma: no cover
+    optuna = None
+    MedianPruner = None
+    TPESampler = None
 import joblib
 import json
 import time
@@ -139,7 +153,8 @@ class ClinicalModelTrainer:
         n_trials: int = 50,
         primary_metric: str = 'recall',
     ):
-        self.model_names = model_names or ['logistic_regression', 'random_forest', 'xgboost']
+        default_models = ['logistic_regression', 'random_forest', 'xgboost']
+        self.model_names = model_names or default_models
         self.optimization = optimization
         self.cv_folds = cv_folds
         self.n_trials = n_trials
@@ -156,8 +171,11 @@ class ClinicalModelTrainer:
         self.scorer = make_scorer(recall_score)
         
         # Setup Optuna if using
-        if optimization == 'optuna':
+        if optimization == 'optuna' and optuna is not None:
             self.setup_optuna()
+        elif optimization == 'optuna' and optuna is None:
+            logger.warning("Optuna is not installed. Falling back to grid optimization.")
+            self.optimization = 'grid'
         
         logger.info(f"🤖 ModelTrainer initialized: {len(self.model_names)} models")
     
@@ -178,7 +196,7 @@ class ClinicalModelTrainer:
         self.models = {
             name: self.MODELS[name]
             for name in self.model_names
-            if name in self.MODELS
+            if name in self.MODELS and self.MODELS[name]['class'] is not None
         }
         return self.models
     

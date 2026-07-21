@@ -5,7 +5,7 @@ Centralized Feature Registry with Version Control
 
 import json
 import hashlib
-from typing import Dict, Any, List, Optional, Union
+from typing import Callable, Dict, Any, List, Optional, Tuple, Union
 from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
@@ -14,6 +14,7 @@ import numpy as np
 
 from src.logger import get_logger
 from src.config_manager import config_manager
+from src.feature_store.feature_engineering import FeatureDefinition, FeatureType, FeatureStatus
 
 logger = get_logger(__name__)
 

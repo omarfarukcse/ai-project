@@ -15,12 +15,12 @@ import pandas as pd
 import numpy as np
 
 from src.components.model_registry import ModelRegistry
-from src.caching.redis_client import get_fast_redis_client
+from src.caching.redis_client import FastRedisClient, get_fast_redis_client
 from src.monitoring.drift_detection import DriftDetector
-from src.feature_store.online_store import FeatureStore
+from src.feature_store.online_store import OnlineFeatureStore
 from src.security.auth import AuthManager
 from src.security.audit import AuditLogger
-from src.utils.circuit_breaker import get_circuit_breaker
+from src.utils.circuit_breaker import CircuitBreaker, get_circuit_breaker as _get_circuit_breaker
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -151,9 +151,9 @@ def get_redis_client() -> FastRedisClient:
 
 
 @lru_cache(maxsize=1)
-def get_feature_store() -> FeatureStore:
+def get_feature_store() -> OnlineFeatureStore:
     """Get feature store (cached)"""
-    return FeatureStore()
+    return OnlineFeatureStore()
 
 
 # ============================================================================
@@ -169,7 +169,7 @@ def get_drift_detector() -> DriftDetector:
 @lru_cache(maxsize=1)
 def get_circuit_breaker() -> CircuitBreaker:
     """Get circuit breaker (cached)"""
-    return get_circuit_breaker()
+    return _get_circuit_breaker()
 
 
 @lru_cache(maxsize=1)

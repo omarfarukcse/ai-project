@@ -10,6 +10,7 @@ from sklearn.preprocessing import (
     StandardScaler, MinMaxScaler, RobustScaler, 
     PowerTransformer, QuantileTransformer
 )
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import SimpleImputer, KNNImputer, IterativeImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline

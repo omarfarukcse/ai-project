@@ -16,6 +16,7 @@ from prometheus_client import (
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
 import time
+import asyncio
 from functools import wraps
 
 from src.logger import get_logger
@@ -477,3 +478,9 @@ def get_prometheus_exporter() -> PrometheusExporter:
     if _prometheus_exporter is None:
         _prometheus_exporter = PrometheusExporter()
     return _prometheus_exporter
+
+
+Counter = PromCounter
+Histogram = PromHistogram
+Gauge = PromGauge
+Summary = PromSummary
